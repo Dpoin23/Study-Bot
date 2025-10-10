@@ -12,7 +12,11 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix='#', intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+secret_role = "Worker"
+regular_role = "Member"
+top_role = "Admin"
 
 @bot.event
 async def on_ready():
@@ -36,5 +40,32 @@ async def on_message(message):
 @bot.command()
 async def hello(ctx):
     await ctx.send(f"Hello {ctx.author.mention}!")
+
+@bot.command()
+async def assign_admin(ctx):
+    role = discord.utils.get(ctx.guild.roles, name=top_role)
+    if role:
+        await ctx.author.add_roles(role)
+        await ctx.send(f"{ctx.author.mention} is now assigned to {top_role}")
+    else:
+        await ctx.send("Role doesn't exist")
+
+@bot.command()
+async def assign_worker(ctx):
+    role = discord.utils.get(ctx.guild.roles, name=secret_role)
+    if role:
+        await ctx.author.add_roles(role)
+        await ctx.send(f"{ctx.author.mention} is now assigned to {secret_role}")
+    else:
+        await ctx.send("Role doesn't exist")
+
+@bot.command()
+async def assign_member(ctx):
+    role = discord.utils.get(ctx.guild.roles, name=regular_role)
+    if role:
+        await ctx.author.add_roles(role)
+        await ctx.send(f"{ctx.author.mention} is now assigned to {regular_role}")
+    else:
+        await ctx.send("Role doesn't exist")
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
