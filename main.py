@@ -68,4 +68,13 @@ async def assign_member(ctx):
     else:
         await ctx.send("Role doesn't exist")
 
+@bot.command()
+async def remove_worker(ctx):
+    role = discord.utils.get(ctx.guild.roles, name=regular_role)
+    if role:
+        await ctx.author.remove_roles(regular_role)
+        await ctx.send(f"{ctx.author.mention} has had their {regular_role} role removed")
+    else:
+        await ctx.send("Role doesn't exist")
+
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
