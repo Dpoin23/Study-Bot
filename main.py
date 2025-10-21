@@ -77,4 +77,15 @@ async def remove_worker(ctx):
     else:
         await ctx.send("Role doesn't exist")
 
+@bot.command()
+@commands.has_role(secret_role)
+async def secret(ctx):
+    await ctx.send('Welcome to the club!')
+
+
+@secret.error()
+async def secret_error(ctx, err):
+    if isinstance(err, commands.MissingRole):
+        await ctx.send("You do not have the proper permissions.")
+
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
