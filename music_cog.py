@@ -12,7 +12,7 @@ from youtube_dl import YoutubeDL
 
 # guild represents the server
 
-class music_cog(commands.Cog):
+class MusicCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
@@ -35,6 +35,11 @@ class music_cog(commands.Cog):
             'options': '-vn'
         }
 
+        self.embedBlue = 0x2c76dd
+        self.embedRed = 0xdf1141
+        self.embedGreen = 0x0eaa51
+        self.embedOrange = 0xFFA500
+
     @commands.Cog.listener()
     async def on_ready(self):
         for guild in self.bot.guilds:
@@ -43,6 +48,33 @@ class music_cog(commands.Cog):
             self.queueIndex[id] = 0
             self.vc[id] = None
             self.isPaused[id] = self.isPlaying[id] = False
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        id = int(member.guild.id)
+        if member.id != self.bot.user.id and before.channel != None and after.channel != before.channel:
+            remainingChannelMembers = before.channel.members
+            if len(remainingChannelMembers) == 1 and remainingChannelMembers[0].id == self.bot.user.id and self.vc[id].is_connected():
+                self.musicQueue[id] = []
+                self.queueIndex[id] = 0
+                self.isPaused[id] = self.isPlaying[id] = False
+                await self.vc[id].disconnect()
+    
+    def now_playing_embed(self, ctx, song):
+        title = song['title']
+        link = song['link']
+        thumbnail = song['thumbnail']
+        author = ctx.author
+        avatar = author.avatar_url
+
+        embed = discord.Embed(
+            title="Now Playing",
+            description=f'[{title}]({link})',
+            colour=self.embedOrange
+        )
+        embed.set_thumbnail(url=thumbnail)
+        embed.set_footer(text=f"Song added by: {str(author)}", icon_url=avatar)
+        return embed
 
     async def join_vc(self, ctx, channel):
         id = int(ctx.guild.id)
@@ -74,3 +106,73 @@ class music_cog(commands.Cog):
             'source': info['formats'][0]['url'],
             'title': info['title']
         }
+    
+    def play_next(self, ctx):
+        id = int(ctx.guild.id)
+        if not self.isPlaying[id]:
+            return
+        if self.queueIndex[id] + 1 < len(self.musicQueue[id]):
+            self.isPlaying[id] = True
+            self.queueIndex[id] += 1
+            
+            song = self.musicQueue[id][self.queueIndex[id]][0]
+            message = self.now_playing_embed(ctx, song)
+            coroutine = ctx.send(embed=message)
+            var = run_coroutine_threadsafe(coroutine, self.bot.loop)
+            try:
+                var.result()
+            except:
+                pass
+
+            self.vc[id].play(discord.FFmpegPCMAudio(
+                song['source'], **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
+        else:
+            self.queueIndex[id] += 1
+            self.isPlaying[id] = False
+
+    async def play_music(self, ctx):
+        id = int(ctx.guild.id)
+        if self.queueIndex[id] < len(self.musicQueue[id]):
+            self.isPlaying[id] = True
+            self.isPaused[id] = False
+
+            await self.join_vc(ctx, self.musicQueue[id][self.queueIndex[id]][1])
+
+            song = self.musicQueue[id][self.queueIndex[id]][0]
+            message = self.now_playing_embed
+            await ctx.send(embed=message)
+
+            self.vc[id].play(discord.FFmpegPCMAudio(
+                song['source'], **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
+        else:
+            await ctx.send("There are no songs in the queue.")
+            self.queueIndex[id] += 1
+            self.isPlaying[id] = False
+            
+    @commands.command(
+        name="join",
+        aliases=['j'],
+        help=""
+    )
+    async def join(self, ctx):
+        if ctx.author.voice:
+            userChannel = ctx.author.voice.channel
+            await self.join_vc(ctx, userChannel)
+            await ctx.send(f'Study Bot has joined {userChannel}')
+        else:
+            await ctx.send("You need to be connected to a voice channel.")
+
+    @commands.command(
+        name="leave",
+        aliases=['l'],
+        help=""
+    )
+    async def leave(self, ctx):
+        id = int(ctx.guild.id)
+        self.musicQueue[id] = []
+        self.queueIndex[id] = 0
+        self.isPaused[id] = self.isPlaying[id] = False
+        if self.vc[id] != None:
+            userChannel = ctx.author.voice.channel
+            await ctx.send(f"Study bot has left {userChannel}")
+            await self.vc[id].disconnect()

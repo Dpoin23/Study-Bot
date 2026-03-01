@@ -4,8 +4,8 @@ import logging
 from dotenv import load_dotenv
 import os
 
-from music_cog import music_cog
-from admin_cog import admin_cog
+from music_cog import MusicCog
+from admin_cog import AdminCog
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -15,13 +15,16 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix='/', intents=intents)
-bot.add_cog(music_cog(bot))
-bot.add_cog(admin_cog(bot))
+class MyBot(commands.Bot):
+    async def setup_hook(self):
+        await self.add_cog(MusicCog(self))
+        await self.add_cog(AdminCog(self))
 
-secret_role = "Developer"
-regular_role = "Member"
-top_role = "Admin"
+bot = MyBot(command_prefix='!', intents=intents)
+
+secretRole = "Developer"
+regularRole = "Member"
+topRole = "Admin"
 
 """@bot.event
 async def on_ready():
