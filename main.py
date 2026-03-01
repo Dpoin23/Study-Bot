@@ -4,6 +4,9 @@ import logging
 from dotenv import load_dotenv
 import os
 
+from music_cog import music_cog
+from admin_cog import admin_cog
+
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 
@@ -12,13 +15,15 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix='/', intents=intents)
+bot.add_cog(music_cog(bot))
+bot.add_cog(admin_cog(bot))
 
-secret_role = "Worker"
+secret_role = "Developer"
 regular_role = "Member"
 top_role = "Admin"
 
-@bot.event
+"""@bot.event
 async def on_ready():
     print(f'Ready to go: {bot.user.name}')
 
@@ -98,9 +103,29 @@ async def poll(ctx, *, msg):
 async def secret(ctx):
     await ctx.send('Welcome to the club!')
 
+@bot.command()
+async def join():
+    pass
+
+@bot.command()
+async def play():
+    pass
+
+@bot.command()
+async def skip():
+    pass
+
+@bot.command()
+async def playback():
+    pass
+
+@bot.command()
+async def stop():
+    pass
+
 @secret.error()
 async def secret_error(ctx, err):
     if isinstance(err, commands.MissingRole):
-        await ctx.send("You do not have the proper permissions.")
+        await ctx.send("You do not have the proper permissions.")"""
 
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
