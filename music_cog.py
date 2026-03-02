@@ -8,7 +8,7 @@ from urllib import parse, request
 import re
 import json
 import os
-from youtube_dl import YoutubeDL
+from yt_dlp import YoutubeDL
 
 # guild represents the server
 
@@ -29,7 +29,19 @@ class MusicCog(commands.Cog):
         # status for whether or not the bot is in the voice channel or not
         self.vc = {}
 
-        self.YTDL_OPTIONS = {'format': 'bestaudio', 'nonplaylist': 'True'}
+        self.YTDL_OPTIONS = {
+            'format': 'bestaudio/best',
+            'quiet': True,
+            'noplaylist': True,
+            'js_runtimes': {
+                'node': {
+                    'path': r'C:\Program Files\nodejs\node.exe'
+                }
+            },
+            'remote_components': {
+                'ejs': 'github'
+            }
+        }
         self.FFMPEG_OPTIONS = {
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 
             'options': '-vn'
@@ -65,7 +77,7 @@ class MusicCog(commands.Cog):
         link = song['link']
         thumbnail = song['thumbnail']
         author = ctx.author
-        avatar = author.avatar_url
+        avatar = author.display_avatar.url
 
         embed = discord.Embed(
             title="Now Playing",
@@ -88,22 +100,20 @@ class MusicCog(commands.Cog):
         else: 
             await self.vc[id].move_to(channel)
     
-    def search_yt(self, search):
-        queryString = parse.urlencode({"search_query": search})
-        htmContent =  request.urlopen('http://www.youtube.com/results?' + queryString)
-        searchResults = re.findall('/watch\?v=(.{11})', htmContent.read().decode())
-        return searchResults[:10]
-
-    def extract_yt(self, url):
+    def find_song(self, query):
         with YoutubeDL(self.YTDL_OPTIONS) as ydl:
             try:
-                info = ydl.extract_info(url, download=False)
+                if query.startswith('http'):
+                    info = ydl.extract_info(query, download=False)
+                else:
+                    info = ydl.extract_info(f"ytsearch:{query}", download=False)
+                    info = info['entries'][0]
             except:
-                return False
+                return None
         return {
-            'link': 'https://www.youtube.com/watch?v=' + url,
-            'thumbnail': 'https://i.ytimg.com/vi/' + url + '/hqdefault.jpg?sqp=-oaymwEcCOADEI4CSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLD5uL4xKN-IUfez6KIW_j5y70mlig',
-            'source': info['formats'][0]['url'],
+            'link': info['webpage_url'],
+            'thumbnail': info.get('thumbnail'),
+            'source': info['url'],
             'title': info['title']
         }
     
@@ -121,8 +131,8 @@ class MusicCog(commands.Cog):
             var = run_coroutine_threadsafe(coroutine, self.bot.loop)
             try:
                 var.result()
-            except:
-                pass
+            except Exception as e:
+                print(f"Error: {e}")
 
             self.vc[id].play(discord.FFmpegPCMAudio(
                 song['source'], **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
@@ -139,7 +149,7 @@ class MusicCog(commands.Cog):
             await self.join_vc(ctx, self.musicQueue[id][self.queueIndex[id]][1])
 
             song = self.musicQueue[id][self.queueIndex[id]][0]
-            message = self.now_playing_embed
+            message = self.now_playing_embed(ctx, song)
             await ctx.send(embed=message)
 
             self.vc[id].play(discord.FFmpegPCMAudio(
@@ -148,6 +158,61 @@ class MusicCog(commands.Cog):
             await ctx.send("There are no songs in the queue.")
             self.queueIndex[id] += 1
             self.isPlaying[id] = False
+
+    @commands.command(
+        name="play",
+        aliases=['pl'],
+        help=""
+    )
+    async def play(self, ctx, *args):
+        search = " ".join(args)
+        id = int(ctx.guild.id)
+        try:
+            userChannel = ctx.author.voice.channel
+        except:
+            await ctx.send("You must be connected to a voice channel to play music.")
+            return
+        if not args:
+            if len(self.musicQueue[id]) == 0:
+                await ctx.send("There are no songs in the queue.")
+                return
+            elif not self.isPlaying[id]:
+                if self.musicQueue[id] == None or self.vc[id] == None:
+                    await self.play_music(ctx)
+                else:
+                    self.isPaused[id] = False
+                    self.isPlaying[id] = True
+                    self.vc[id].resume()
+            else:
+                return
+        else:
+            song = self.find_song(search)
+            if song is None:
+                await ctx.send("Could not download the song, incorrect format, try a different search.")
+            else:
+                self.musicQueue[id].append([song, userChannel])
+
+                if not self.isPlaying[id]:
+                    await self.play_music(ctx)
+                else:
+                    message = ""
+                    await ctx.send(message)
+
+    @commands.command(
+        name="pause",
+        aliases=['p'],
+        help=""
+    )
+    async def pause(self, ctx):
+        pass
+
+    @commands.command(
+        name='resume',
+        aliases=['r'],
+        help=''
+    )
+    async def resume(self, ctx):
+        pass
             
     @commands.command(
         name="join",
