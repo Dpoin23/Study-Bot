@@ -136,6 +136,25 @@ class MusicCog(commands.Cog):
             'title': info['title']
         }
     
+    def search_helper(self, search):
+        with YoutubeDL(self.YTDL_OPTIONS) as ydl:
+            try:
+                info = ydl.extract_info(f"ytsearch10:{search}", download=False)
+                info = info['entries']
+            except:
+                print("Error when trying to search.")
+                return None
+        
+        results = []
+        for entry in info:
+            results.append({
+                'link': entry['webpage_url'],
+                'thumbnail': entry.get('thumbnail'),
+                'source': entry['url'],
+                'title': entry['title']
+            })
+        return results
+    
     def play_next(self, ctx):
         id = int(ctx.guild.id)
         if not self.isPlaying[id]:
@@ -244,6 +263,124 @@ class MusicCog(commands.Cog):
                 await ctx.send(embed=message)
 
     @commands.command(
+        name="search",
+        aliases=['?', 'se', 'find'],
+        help=""
+    )
+    async def search(self, ctx, *args):
+        search = " ".join(args)
+        songNames = []
+        songReferences = []
+        selectionOptions = []
+        embedText = ""
+        
+        if not args:
+            await ctx.send("You must specify search terms.")
+            return
+        try:
+            userChannel = ctx.author.voice.channel
+        except:
+            await ctx.send("You must be connected to a voice channel.")
+            return
+        
+        await ctx.send("Fetching search results . . .")
+
+        songs = self.search_helper(search)
+        if songs == None:
+            await ctx.send("No results matching your search.")
+            return
+        
+        for i in range(0, 10):
+            name = songs[i]['title']
+            url = songs[i]['source']
+            songReferences.append(songs[i])
+            songNames.append(name)
+            embedText += f"{i + 1} - [{name}]({url})\n"
+        
+        for i, title in enumerate(songs):
+            selectionOptions.append(SelectOption(
+                label=f"{i + 1} - {title}",
+                value=i
+            ))
+
+        searchResults = discord.Embed(
+            title="Search Results",
+            description=embedText,
+            color=self.embedBlue
+        )
+        selectionComponents = [
+            Select(
+                placeholder="Select an option",
+                options=selectionOptions
+            ),
+            Button(
+                label="Cancel",
+                custom_id="Cancel",
+                style=4
+            )
+        ]
+        message = await ctx.send(embed=searchResults, view=selectionComponents)
+        try:
+            tasks = [
+                asyncio.create_task(self.bot.wait_for(
+                    "button_click",
+                    timeout=60.0,
+                    check=None
+                ), name="button"),
+                asyncio.create_task(self.bot.wait_for(
+                    "select_option",
+                    timeout=60.0,
+                    check=None
+                ), name="select")
+            ]
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            finished = list(done)[0]
+
+            for task in pending:
+                try:
+                    task.cancel()
+                except asyncio.CancelledError:
+                    print("Error when trying to cancel pending tasks.")
+                    pass
+            
+            if finished == None:
+                searchResults.title = "Search Failed"
+                searchResults.description = "" 
+                await message.delete()
+                await ctx.send(embed=searchResults)
+                return
+            
+            action = finished.get_name()
+            if action == "button":
+                searchResults.title = "Search Failed"
+                searchResults.description = "" 
+                await message.delete()
+                await ctx.send(embed=searchResults)
+            elif action == "select":
+                result = finished.result()
+                chosenIndex = int(result.values[0])
+                songRef = songReferences[chosenIndex]
+                if songRef == None:
+                    await ctx.send("Could not download the song. Incorrect format.")
+                    return
+                embedResponse = discord.Embed(
+                    title=f"Option #{chosenIndex + 1} selected.",
+                    description=f"[{songRef['title']}]({songRef['link']}) added to the queue!",
+                    color=self.embedBlue
+                )
+                embedResponse.set_thumbnail(url=songRef['thumbnail'])
+                await message.delete()
+                await ctx.send(embed=embedResponse)
+                self.musicQueue[ctx.guild.id].append([songRef, userChannel])
+        except:
+            searchResults.title = "Search Failed"
+            searchResults.description = "" 
+            await message.delete()
+            await ctx.send(embed=searchResults)
+
+
+
+    @commands.command(
         name="pause",
         aliases=['stop'],
         help=""
@@ -303,6 +440,6 @@ class MusicCog(commands.Cog):
         self.queueIndex[id] = 0
         self.isPaused[id] = self.isPlaying[id] = False
         if self.vc[id] != None:
-            userChannel = ctx.author.voice.channel
-            await ctx.send(f"Study bot has left {userChannel}")
+            await ctx.send(f"Study bot has left {ctx.author.voice.channel}")
             await self.vc[id].disconnect()
+            self.vc[id] = None
