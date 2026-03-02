@@ -52,6 +52,7 @@ class MusicCog(commands.Cog):
         self.embedGreen = 0x0eaa51
         self.embedOrange = 0xFFA500
 
+    # Listeners
     @commands.Cog.listener()
     async def on_ready(self):
         for guild in self.bot.guilds:
@@ -71,7 +72,8 @@ class MusicCog(commands.Cog):
                 self.queueIndex[id] = 0
                 self.isPaused[id] = self.isPlaying[id] = False
                 await self.vc[id].disconnect()
-    
+
+    # Embed functions
     def now_playing_embed(self, ctx, song):
         title = song['title']
         link = song['link']
@@ -80,9 +82,25 @@ class MusicCog(commands.Cog):
         avatar = author.display_avatar.url
 
         embed = discord.Embed(
-            title="Now Playing",
+            title="Now Playing.",
             description=f'[{title}]({link})',
             colour=self.embedOrange
+        )
+        embed.set_thumbnail(url=thumbnail)
+        embed.set_footer(text=f"Song added by: {str(author)}", icon_url=avatar)
+        return embed
+    
+    def added_song_embed(self, ctx, song):
+        title = song['title']
+        link = song['link']
+        thumbnail = song['thumbnail']
+        author = ctx.author
+        avatar = author.display_avatar.url
+
+        embed = discord.Embed(
+            title="Song Added to Queue.",
+            description=f'[{title}]({link})',
+            colour=self.embedBlue
         )
         embed.set_thumbnail(url=thumbnail)
         embed.set_footer(text=f"Song added by: {str(author)}", icon_url=avatar)
@@ -100,6 +118,7 @@ class MusicCog(commands.Cog):
         else: 
             await self.vc[id].move_to(channel)
     
+    # Helper Functions
     def find_song(self, query):
         with YoutubeDL(self.YTDL_OPTIONS) as ydl:
             try:
@@ -140,6 +159,7 @@ class MusicCog(commands.Cog):
             self.queueIndex[id] += 1
             self.isPlaying[id] = False
 
+    # Other Async Functions
     async def play_music(self, ctx):
         id = int(ctx.guild.id)
         if self.queueIndex[id] < len(self.musicQueue[id]):
@@ -159,6 +179,7 @@ class MusicCog(commands.Cog):
             self.queueIndex[id] += 1
             self.isPlaying[id] = False
 
+    # Commands
     @commands.command(
         name="play",
         aliases=['pl'],
@@ -195,24 +216,68 @@ class MusicCog(commands.Cog):
                 if not self.isPlaying[id]:
                     await self.play_music(ctx)
                 else:
-                    message = ""
-                    await ctx.send(message)
+                    message = self.added_song_embed(ctx, song)
+                    await ctx.send(embed=message)
+
+    @commands.command(
+        name='add',
+        aliases=['a', '+'],
+        help=''
+    )
+    async def add(self, ctx, *args):
+        search = " ".join(args)
+        id = int(ctx.guild.id)
+        try:
+            userChannel = ctx.author.voice.channel
+        except:
+            await ctx.send("You must be connected to a voice channel to play music.")
+            return
+        if not args:
+            await ctx.send("Please specify a song to add.")
+        else:
+            song = self.find_song(search)
+            if song is None:
+                await ctx.send("Could not download the song, incorrect format, try a different search.")
+            else:
+                self.musicQueue[id].append([song, userChannel])
+                message = self.added_song_embed(ctx, song)
+                await ctx.send(embed=message)
 
     @commands.command(
         name="pause",
-        aliases=['p'],
+        aliases=['stop'],
         help=""
     )
     async def pause(self, ctx):
-        pass
+        id = int(ctx.guild.id)
+        if not self.vc[id]:
+            await ctx.send("There is no audio being played at the moment.")
+        elif self.isPlaying[id]:
+            await ctx.send("Audio paused.")
+            self.isPlaying[id] = False
+            self.isPaused[id] = True
+            self.vc[id].pause()
+        else:
+            await ctx.send("There is no audio being played at the moment.")
 
     @commands.command(
         name='resume',
-        aliases=['r'],
+        aliases=['re', 'start'],
         help=''
     )
     async def resume(self, ctx):
-        pass
+        id = int(ctx.guild.id)
+        if not self.vc[id]:
+            await ctx.send("There is no audio to be played at the moment.")
+        elif self.isPaused[id]:
+            await ctx.send("Audio resumed.")
+            self.isPaused[id] = False
+            self.isPlaying[id] = True
+            self.vc[id].resume()
+        elif self.isPlaying[id]:
+            await ctx.send("Audio is currently being played.")
+        else:
+            await ctx.send("Encountered and error when attempting to resume.")
             
     @commands.command(
         name="join",
