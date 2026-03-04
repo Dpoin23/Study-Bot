@@ -270,7 +270,6 @@ class MusicCog(commands.Cog):
     )
     async def search(self, ctx, *args):
         search = " ".join(args)
-        songReferences = []
         embedText = ""
         
         if not args:
@@ -327,7 +326,7 @@ class MusicCog(commands.Cog):
     async def resume(self, ctx):
         id = int(ctx.guild.id)
         if not self.vc[id]:
-            await ctx.send("There is no audio to be played at the moment.")
+            await ctx.send("There is no paused audio at the moment.")
         elif self.isPaused[id]:
             await ctx.send("Audio resumed.")
             self.isPaused[id] = False
