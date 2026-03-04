@@ -1,7 +1,12 @@
-# Discord-Bot
-Command Prefix: '!'
+# Study-Bot
 
-Commands:
+A Discord music bot that allows users to search, queue, and control music playback directly from a voice channel
+
+**Command Prefix:** `!`
+
+---
+
+##Commands:
 !play - 
     Alias: !pl
     Description: Plays any music that is currently added to the queue, it can also be used as a resume button if there is a song that is currently paused. Play also supports limited search functionality, searching for a song in the play command (!play The Pretender) will search for the specified song and play the first song that appears in the search (if any).
@@ -11,6 +16,11 @@ Commands:
     Aliases: !a !+
     Description: Adds the song specified in the command to the queue (!play The Pretender).
     Requirements: The add command also requires that you are connected to a voice channel, and also requires that the command contains a song to add (regardless of whether said song will yield any search results or not).
+
+!remove
+    Alias: !rm
+    Description: Removes the song that was most recently add to the queue (the sone at the back).
+    Requirements: The remove command requires that the user is connected to a voice channel, it also requires that the queue contains at least 1 song, remove the only song in the queue essentially just clears the queue, if the song is playing, that song will also be stopped and the bot will leave the voice channel.
 
 !search -
     Aliases: !? !se !find
