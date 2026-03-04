@@ -106,7 +106,24 @@ class MusicCog(commands.Cog):
         embed.set_thumbnail(url=thumbnail)
         embed.set_footer(text=f"Song added by: {str(author)}", icon_url=avatar)
         return embed
+    
+    def removed_song_embed(self, ctx, song):
+        title = song['title']
+        link = song['link']
+        thumbnail = song['thumbnail']
+        author = ctx.author
+        avatar = author.display_avatar.url
 
+        embed = discord.Embed(
+            title="Song Removed From Queue.",
+            description=f'[{title}]({link})',
+            colour=self.embedBlue
+        )
+        embed.set_thumbnail(url=thumbnail)
+        embed.set_footer(text=f"Song removed by: {str(author)}", icon_url=avatar)
+        return embed
+
+    # Helper Functions
     async def join_vc(self, ctx, channel):
         id = int(ctx.guild.id)
         if self.vc[id] == None or not self.vc[id].is_connected():
@@ -119,7 +136,6 @@ class MusicCog(commands.Cog):
         else: 
             await self.vc[id].move_to(channel)
     
-    # Helper Functions
     def find_song(self, query):
         with YoutubeDL(self.YTDL_OPTIONS) as ydl:
             try:
@@ -262,6 +278,31 @@ class MusicCog(commands.Cog):
                 self.musicQueue[id].append([song, userChannel])
                 message = self.added_song_embed(ctx, song)
                 await ctx.send(embed=message)
+
+    @commands.command(
+        name='remove',
+        aliases=['rm'],
+        help=''
+    )
+    async def remove(self, ctx):
+        id = int(ctx.guild.id)
+        if self.musicQueue[id] != []:
+            song = self.musicQueue[id][-1][0]
+            removeSongEmbed = self.removed_song_embed(ctx, song)
+            await ctx.send(embed=removeSongEmbed)
+        else:
+            await ctx.send("There are no songs to remove from the queue.")
+        self.musicQueue[id] = self.musicQueue[id][:-1]
+        if self.musicQueue[id] == []:
+            if self.vc[id] != None and self.isPlaying[id]:
+                self.isPlaying[id] = self.isPaused[id] = False
+                await self.vc[id].disconnect()
+                self.vc[id] = None
+            self.queueIndex[id] = 0
+        elif self.queueIndex[id] == len(self.musicQueue[id]) and self.vc[id] != None and self.vc[id]:
+            self.vc[id].pause()
+            self.queueIndex[id] -= 1
+            await self.play_music(ctx)
 
     @commands.command(
         name="search",
