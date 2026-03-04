@@ -17,3 +17,12 @@ A Discord music bot that allows users to search, queue, and control music playba
 | `!resume` | `!re !start` | `The resume command resumes any music that is currently paused.` | `Resume requires that the user is connected to a voice channel, and there is a song that is currently paused.` |
 | `!join` | `!j` | `The join command prompts the bot to join the voice channel.` | `Join requires that the user is connected to a voice channel so the bot has a channel to join.` |
 | `!leave` | `!l` | `The leave command prompts the bot to leave the voice channel, which will also cause any currently playing music to stop and the current music queue to be erased.` | `Leave requires that the user is connected to a voice channel and that the bot is also in the voice channel. If there are no users left in the voice channel, the bot will automatically leave.` |
+
+---
+
+## Setup & Installation
+
+```bash
+git clone git@github.com:your-username-here/Study-Bot.git
+cd Study-Bot
+pip install -r requirements.txt
