@@ -9,6 +9,7 @@ import re
 import json
 import os
 from yt_dlp import YoutubeDL
+from view import SearchView
 
 # guild represents the server
 
@@ -269,9 +270,7 @@ class MusicCog(commands.Cog):
     )
     async def search(self, ctx, *args):
         search = " ".join(args)
-        songNames = []
         songReferences = []
-        selectionOptions = []
         embedText = ""
         
         if not args:
@@ -289,96 +288,19 @@ class MusicCog(commands.Cog):
         if songs == None:
             await ctx.send("No results matching your search.")
             return
-        
-        for i in range(0, 10):
-            name = songs[i]['title']
-            url = songs[i]['source']
-            songReferences.append(songs[i])
-            songNames.append(name)
-            embedText += f"{i + 1} - [{name}]({url})\n"
-        
-        for i, title in enumerate(songs):
-            selectionOptions.append(SelectOption(
-                label=f"{i + 1} - {title}",
-                value=i
-            ))
+    
+        for i, song in enumerate(songs):
+            embedText += f"{i + 1} - [{song['title']}]({song['link']})\n"
 
         searchResults = discord.Embed(
             title="Search Results",
             description=embedText,
             color=self.embedBlue
         )
-        selectionComponents = [
-            Select(
-                placeholder="Select an option",
-                options=selectionOptions
-            ),
-            Button(
-                label="Cancel",
-                custom_id="Cancel",
-                style=4
-            )
-        ]
-        message = await ctx.send(embed=searchResults, view=selectionComponents)
-        try:
-            tasks = [
-                asyncio.create_task(self.bot.wait_for(
-                    "button_click",
-                    timeout=60.0,
-                    check=None
-                ), name="button"),
-                asyncio.create_task(self.bot.wait_for(
-                    "select_option",
-                    timeout=60.0,
-                    check=None
-                ), name="select")
-            ]
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-            finished = list(done)[0]
 
-            for task in pending:
-                try:
-                    task.cancel()
-                except asyncio.CancelledError:
-                    print("Error when trying to cancel pending tasks.")
-                    pass
-            
-            if finished == None:
-                searchResults.title = "Search Failed"
-                searchResults.description = "" 
-                await message.delete()
-                await ctx.send(embed=searchResults)
-                return
-            
-            action = finished.get_name()
-            if action == "button":
-                searchResults.title = "Search Failed"
-                searchResults.description = "" 
-                await message.delete()
-                await ctx.send(embed=searchResults)
-            elif action == "select":
-                result = finished.result()
-                chosenIndex = int(result.values[0])
-                songRef = songReferences[chosenIndex]
-                if songRef == None:
-                    await ctx.send("Could not download the song. Incorrect format.")
-                    return
-                embedResponse = discord.Embed(
-                    title=f"Option #{chosenIndex + 1} selected.",
-                    description=f"[{songRef['title']}]({songRef['link']}) added to the queue!",
-                    color=self.embedBlue
-                )
-                embedResponse.set_thumbnail(url=songRef['thumbnail'])
-                await message.delete()
-                await ctx.send(embed=embedResponse)
-                self.musicQueue[ctx.guild.id].append([songRef, userChannel])
-        except:
-            searchResults.title = "Search Failed"
-            searchResults.description = "" 
-            await message.delete()
-            await ctx.send(embed=searchResults)
-
-
+        view = SearchView(ctx, songs, songs, self.embedBlue, self.musicQueue)
+        message = await ctx.send(embed=searchResults, view=view)
+        view.message = message
 
     @commands.command(
         name="pause",

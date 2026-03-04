@@ -1,6 +1,6 @@
 import discord
 
-class SearchView(discord.ui.view):
+class SearchView(discord.ui.View):
     def __init__(self, ctx, songs, songReferences, embedBlue, musicQueue):
         super().__init__(timeout=60)
         self.ctx = ctx
@@ -11,7 +11,7 @@ class SearchView(discord.ui.view):
 
         options = [
             discord.SelectOption(
-                label=f"{i+1} - {song['title']}\n",
+                label=f"{i+1} - {song['title'][:90]}\n",
                 value=str(i)
             )
             for i, song in enumerate(songs)
