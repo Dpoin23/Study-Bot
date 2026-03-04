@@ -6,7 +6,10 @@ A Discord music bot that allows users to search, queue, and control music playba
 
 ---
 
-##Commands:
+## Commands:
+| Command | Aliases | Description | Requirements |
+|---------|---------|-------------|--------------|
+| `!play` | `!pl` | `Plays any music that is currently added to the queue, it can also be used as a resume button if there is a song that is currently paused. Play also supports limited search functionality, searching for a song in the play command (!play The Pretender) will search for the specified song and play the first song that appears in the search (if any).` | `Using the play command requires that you are in a voice channel.` |
 !play - 
     Alias: !pl
     Description: Plays any music that is currently added to the queue, it can also be used as a resume button if there is a song that is currently paused. Play also supports limited search functionality, searching for a song in the play command (!play The Pretender) will search for the specified song and play the first song that appears in the search (if any).
