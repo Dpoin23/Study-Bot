@@ -305,6 +305,14 @@ class MusicCog(commands.Cog):
             await self.play_music(ctx)
 
     @commands.command(
+        name='clear',
+        aliases=['cl', 'removeall'],
+        help=''
+    )
+    async def clear(self, ctx):
+        pass
+
+    @commands.command(
         name="search",
         aliases=['?', 'se', 'find'],
         help=""
@@ -377,6 +385,43 @@ class MusicCog(commands.Cog):
             await ctx.send("Audio is currently being played.")
         else:
             await ctx.send("Encountered and error when attempting to resume.")
+
+    @commands.command(
+        name='queue',
+        aliases=['q', 'list'],
+        help=''
+    )
+    async def queue(self, ctx):
+        id = int(ctx.guild.id)
+        returnValue = ""
+        if self.musicQueue[id] == []:
+            await ctx.send("There are no songs in the queue.")
+            return
+        
+        for i in range(self.queueIndex[id], len(self.musicQueue[id])):
+            nextSongs = len(self.musicQueue[id]) - self.queueIndex[id]
+            if i > 5 + nextSongs:
+                break
+            returnIndex = i - self.queueIndex[id]
+            if returnIndex == 0 and self.isPlaying[id]:
+                returnIndex = "Playing"
+            elif returnIndex == 1 and self.isPlaying[id]:
+                returnIndex = "Next"
+            else:
+                returnIndex += 1
+            returnValue += f"{returnIndex} - [{self.musicQueue[id][i][0]['title']}]({self.musicQueue[id][i][0]['link']})\n"
+
+            if returnValue == "":
+                await ctx.send("There are no songs in the queue.")
+                return
+        
+        queue = discord.Embed(
+            title="Current Queue",
+            description=returnValue,
+            color=self.embedGreen
+        )
+
+        await ctx.send(embed=queue)
             
     @commands.command(
         name="join",
