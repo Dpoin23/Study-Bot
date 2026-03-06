@@ -305,14 +305,6 @@ class MusicCog(commands.Cog):
             await self.play_music(ctx)
 
     @commands.command(
-        name='clear',
-        aliases=['cl', 'removeall'],
-        help=''
-    )
-    async def clear(self, ctx):
-        pass
-
-    @commands.command(
         name="search",
         aliases=['?', 'se', 'find'],
         help=""
@@ -420,8 +412,22 @@ class MusicCog(commands.Cog):
             description=returnValue,
             color=self.embedGreen
         )
-
         await ctx.send(embed=queue)
+
+    @commands.command(
+        name='clear',
+        aliases=['cl', 'removeall'],
+        help=''
+    )
+    async def clear(self, ctx):
+        id = int(ctx.guild.id)
+        if self.vc[id] != None and self.isPlaying[id]:
+            self.isPlaying[id] = self.isPaused[id] = False
+            self.vc[id].stop()
+        if self.musicQueue[id] != []:
+            await ctx.send("Music queue cleared.")
+            self.musicQueue[id] = []
+        self.queueIndex[id] = 0
             
     @commands.command(
         name="join",

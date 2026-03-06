@@ -17,6 +17,8 @@ A Discord music bot that allows users to search, queue, and control music playba
 | `!resume` | `!re !start` | `The resume command resumes any music that is currently paused.` | `Resume requires that the user is connected to a voice channel, and there is a song that is currently paused.` |
 | `!join` | `!j` | `The join command prompts the bot to join the voice channel.` | `Join requires that the user is connected to a voice channel so the bot has a channel to join.` |
 | `!leave` | `!l` | `The leave command prompts the bot to leave the voice channel, which will also cause any currently playing music to stop and the current music queue to be erased.` | `Leave requires that the user is connected to a voice channel and that the bot is also in the voice channel. If there are no users left in the voice channel, the bot will automatically leave.` |
+| `!queue` | `!q !list` | `The queue command displays the first 5 songs in the queue (if any). If there are any songs playing, the first two songs are listed as playing and next, if there are no songs playing, the songs are listed in numerical order from 1 to 5.` | `Queue requires that there is at least 1 song in the queue (playing or not).` |
+| `!clear` | `!cl !removeall` | `The clear command removes all the songs from the queue, this includes stopping and removing any song that is currently playing.` | `Clear requires that there is at least 1 song in the queue.` |
 
 ---
 
