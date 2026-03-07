@@ -426,9 +426,11 @@ class MusicCog(commands.Cog):
         elif self.vc[id] != None and self.vc[id] and self.queueIndex[id] == len(self.musicQueue[id]):
             self.queueIndex[id] -= 1
             await self.play_music(ctx)
+        elif self.vc[id] != None and self.vc[id] and self.isPaused[id]:
+            await self.play_music(ctx)
         elif self.vc[id] != None and self.vc[id]:
             self.vc[id].pause()
-            await self.play_music(ctx)
+            await self.play_music(ctx) 
 
     @commands.command(
         name='queue',
