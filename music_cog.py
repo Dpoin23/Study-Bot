@@ -379,6 +379,40 @@ class MusicCog(commands.Cog):
             await ctx.send("Encountered and error when attempting to resume.")
 
     @commands.command(
+        name='previous',
+        aliases=['pr', 'prev'],
+        help=''
+    )
+    async def previous(self, ctx):
+        id = int(ctx.guild.id)
+        if self.vc[id] == None:
+            await ctx.send("You need to be in a voice channel to use previous.")
+        elif self.queueIndex[id] <= 0:
+            await ctx.send("There is no previous song in the queue, replaying current song.")
+            self.vc[id].pause()
+            await self.play_music(ctx)
+        elif self.vc[id] != None and self.vc[id]:
+            self.vc[id].pause()
+            self.queueIndex[id] -= 1
+            await self.play_music(ctx)
+
+    @commands.command(
+        name='skip',
+        aliases=['sk'],
+        help=''
+    )
+    async def skip(self, ctx):
+        id = int(ctx.guild.id)
+        if self.vc[id] == None:
+            await ctx.send("You need to be in a voice channel to use skip.")
+        elif self.queueIndex[id] >= len(self.musicQueue[id]) - 1:
+            await ctx.send("There is no next song in the queue.")
+        elif self.vc[id] != None and self.vc[id]:
+            self.vc[id].pause()
+            self.queueIndex[id] += 1
+            await self.play_music(ctx)
+
+    @commands.command(
         name='queue',
         aliases=['q', 'list'],
         help=''
