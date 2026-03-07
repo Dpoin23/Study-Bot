@@ -398,7 +398,7 @@ class MusicCog(commands.Cog):
 
     @commands.command(
         name='skip',
-        aliases=['sk'],
+        aliases=['sk', 'next'],
         help=''
     )
     async def skip(self, ctx):
@@ -410,6 +410,24 @@ class MusicCog(commands.Cog):
         elif self.vc[id] != None and self.vc[id]:
             self.vc[id].pause()
             self.queueIndex[id] += 1
+            await self.play_music(ctx)
+    
+    @commands.command(
+        name='replay',
+        aliases=['rep'],
+        help=''
+    )
+    async def replay(self, ctx):
+        id = int(ctx.guild.id)
+        if self.vc[id] == None:
+            await ctx.send("You need to be in a voice channel to replay a song.")
+        elif self.musicQueue[id] == []:
+            await ctx.send("There are no songs to replay.")
+        elif self.vc[id] != None and self.vc[id] and self.queueIndex[id] == len(self.musicQueue[id]):
+            self.queueIndex[id] -= 1
+            await self.play_music(ctx)
+        elif self.vc[id] != None and self.vc[id]:
+            self.vc[id].pause()
             await self.play_music(ctx)
 
     @commands.command(
