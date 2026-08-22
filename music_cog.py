@@ -219,7 +219,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name="play",
         aliases=['pl'],
-        help=""
+        help="Play a song from a search or URL, or resume if paused"
     )
     async def play(self, ctx, *args):
         search = " ".join(args)
@@ -258,7 +258,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name='add',
         aliases=['a', '+'],
-        help=''
+        help="Add a song to the queue without starting playback"
     )
     async def add(self, ctx, *args):
         search = " ".join(args)
@@ -282,7 +282,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name='remove',
         aliases=['rm'],
-        help=''
+        help="Remove the last song from the queue"
     )
     async def remove(self, ctx):
         id = int(ctx.guild.id)
@@ -307,7 +307,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name="search",
         aliases=['?', 'se', 'find'],
-        help=""
+        help="Search YouTube and choose a result to add to the queue"
     )
     async def search(self, ctx, *args):
         search = " ".join(args)
@@ -345,7 +345,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name="pause",
         aliases=['stop'],
-        help=""
+        help="Pause the song that is currently playing"
     )
     async def pause(self, ctx):
         id = int(ctx.guild.id)
@@ -362,7 +362,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name='resume',
         aliases=['re', 'start'],
-        help=''
+        help="Resume playback if the song is paused"
     )
     async def resume(self, ctx):
         id = int(ctx.guild.id)
@@ -381,7 +381,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name='previous',
         aliases=['pr', 'prev'],
-        help=''
+        help="Go back to the previous song in the queue"
     )
     async def previous(self, ctx):
         id = int(ctx.guild.id)
@@ -399,7 +399,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name='skip',
         aliases=['sk', 'next'],
-        help=''
+        help="Skip to the next song in the queue"
     )
     async def skip(self, ctx):
         id = int(ctx.guild.id)
@@ -415,7 +415,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name='replay',
         aliases=['rep'],
-        help=''
+        help="Replay the current song from the beginning"
     )
     async def replay(self, ctx):
         id = int(ctx.guild.id)
@@ -435,7 +435,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name='queue',
         aliases=['q', 'list'],
-        help=''
+        help="Show the songs currently in the queue"
     )
     async def queue(self, ctx):
         id = int(ctx.guild.id)
@@ -471,7 +471,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name='clear',
         aliases=['cl', 'removeall'],
-        help=''
+        help="Clear every song from the queue and stop playback"
     )
     async def clear(self, ctx):
         id = int(ctx.guild.id)
@@ -486,7 +486,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name="join",
         aliases=['j'],
-        help=""
+        help="Join the voice channel you are currently in"
     )
     async def join(self, ctx):
         if ctx.author.voice:
@@ -499,7 +499,7 @@ class MusicCog(commands.Cog):
     @commands.command(
         name="leave",
         aliases=['l'],
-        help=""
+        help="Leave the voice channel and clear the queue"
     )
     async def leave(self, ctx):
         id = int(ctx.guild.id)
