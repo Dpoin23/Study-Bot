@@ -34,15 +34,15 @@ class MusicCog(commands.Cog):
             'format': 'bestaudio/best',
             'quiet': True,
             'noplaylist': True,
-            'js_runtimes': {
-                'node': {
-                    'path': r'C:\Program Files\nodejs\node.exe'
-                }
-            },
             'remote_components': {
                 'ejs': 'github'
             }
         }
+        node_path = os.getenv('NODE_PATH')
+        if node_path:
+            self.YTDL_OPTIONS['js_runtimes'] = {
+                'node': {'path': node_path}
+            }
         self.FFMPEG_OPTIONS = {
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 
             'options': '-vn'

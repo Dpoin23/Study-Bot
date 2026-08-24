@@ -1,3 +1,8 @@
 .env
 *.og
 *.log
+.venv/
+venv/
+__pycache__/
+*.pyc
+.vscode/
