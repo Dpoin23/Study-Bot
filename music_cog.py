@@ -9,8 +9,12 @@ import re
 import json
 import os
 import shutil
+import time
 from yt_dlp import YoutubeDL
 from view import SearchView
+
+# Stream URLs from YouTube stay valid for hours; refresh before this to be safe.
+_SOURCE_TTL_SECONDS = 20 * 60
 
 
 def _ffmpeg_executable():
@@ -61,13 +65,28 @@ class MusicCog(commands.Cog):
 
         # status for whether or not the bot is in the voice channel or not
         self.vc = {}
+        self._play_locks = {}
 
         self.YTDL_OPTIONS = {
             'format': 'bestaudio/best',
             'quiet': True,
             'noplaylist': True,
+            'noprogress': True,
+            'no_warnings': True,
+            'skip_download': True,
+            'socket_timeout': 15,
             'remote_components': ['ejs:github'],
             'js_runtimes': _js_runtimes(),
+        }
+        # Metadata only — do not resolve a stream URL for every search hit.
+        self.YTDL_SEARCH_OPTIONS = {
+            'quiet': True,
+            'noprogress': True,
+            'no_warnings': True,
+            'extract_flat': True,
+            'skip_download': True,
+            'socket_timeout': 15,
+            'playlistend': 10,
         }
         self.ffmpeg_executable = _ffmpeg_executable()
         self.FFMPEG_OPTIONS = {
@@ -88,6 +107,7 @@ class MusicCog(commands.Cog):
             self.musicQueue[id] = []
             self.queueIndex[id] = 0
             self.vc[id] = None
+            self._play_locks[id] = asyncio.Lock()
             self.isPaused[id] = self.isPlaying[id] = False
 
     @commands.Cog.listener()
@@ -114,7 +134,8 @@ class MusicCog(commands.Cog):
             description=f'[{title}]({link})',
             colour=self.embedOrange
         )
-        embed.set_thumbnail(url=thumbnail)
+        if thumbnail:
+            embed.set_thumbnail(url=thumbnail)
         embed.set_footer(text=f"Song added by: {str(author)}", icon_url=avatar)
         return embed
     
@@ -130,7 +151,8 @@ class MusicCog(commands.Cog):
             description=f'[{title}]({link})',
             colour=self.embedBlue
         )
-        embed.set_thumbnail(url=thumbnail)
+        if thumbnail:
+            embed.set_thumbnail(url=thumbnail)
         embed.set_footer(text=f"Song added by: {str(author)}", icon_url=avatar)
         return embed
     
@@ -146,7 +168,8 @@ class MusicCog(commands.Cog):
             description=f'[{title}]({link})',
             colour=self.embedBlue
         )
-        embed.set_thumbnail(url=thumbnail)
+        if thumbnail:
+            embed.set_thumbnail(url=thumbnail)
         embed.set_footer(text=f"Song removed by: {str(author)}", icon_url=avatar)
         return embed
 
@@ -162,6 +185,14 @@ class MusicCog(commands.Cog):
         
         else: 
             await self.vc[id].move_to(channel)
+
+    def _play_lock(self, guild_id):
+        gid = int(guild_id)
+        lock = self._play_locks.get(gid)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._play_locks[gid] = lock
+        return lock
 
     def _voice_client(self, guild_id):
         return self.vc.get(int(guild_id))
@@ -191,41 +222,91 @@ class MusicCog(commands.Cog):
             after=after_play,
         )
     
+    def _watch_url(self, entry):
+        video_id = entry.get('id')
+        if video_id and len(str(video_id)) == 11:
+            return f'https://www.youtube.com/watch?v={video_id}'
+        url = entry.get('webpage_url') or entry.get('url') or ''
+        if isinstance(url, str) and url.startswith('http'):
+            return url
+        if url and len(str(url)) == 11:
+            return f'https://www.youtube.com/watch?v={url}'
+        return url
+
+    def _thumbnail_url(self, entry):
+        thumbnail = entry.get('thumbnail')
+        if thumbnail:
+            return thumbnail
+        thumbs = entry.get('thumbnails') or []
+        if thumbs:
+            return thumbs[-1].get('url')
+        video_id = entry.get('id')
+        if video_id and len(str(video_id)) == 11:
+            return f'https://i.ytimg.com/vi/{video_id}/hqdefault.jpg'
+        return None
+
+    def _source_is_fresh(self, song):
+        if not song or not song.get('source'):
+            return False
+        extracted_at = song.get('extracted_at')
+        if extracted_at is None:
+            return False
+        return (time.monotonic() - extracted_at) < _SOURCE_TTL_SECONDS
+
+    def _ensure_stream(self, song):
+        if self._source_is_fresh(song):
+            return song
+        return self.find_song(song['link'])
+
     def find_song(self, query):
         with YoutubeDL(self.YTDL_OPTIONS) as ydl:
             try:
                 if query.startswith('http'):
                     info = ydl.extract_info(query, download=False)
                 else:
-                    info = ydl.extract_info(f"ytsearch:{query}", download=False)
-                    info = info['entries'][0]
-            except:
+                    info = ydl.extract_info(f"ytsearch1:{query}", download=False)
+                    entries = (info or {}).get('entries') or []
+                    info = next((entry for entry in entries if entry), None)
+                if not info:
+                    return None
+            except Exception as e:
+                print(f"Error extracting song: {e}")
                 return None
+        stream = info.get('url')
+        if not stream:
+            return None
         return {
-            'link': info['webpage_url'],
-            'thumbnail': info.get('thumbnail'),
-            'source': info['url'],
-            'title': info['title']
+            'link': info.get('webpage_url') or self._watch_url(info),
+            'thumbnail': self._thumbnail_url(info),
+            'source': stream,
+            'title': info.get('title') or 'Unknown title',
+            'extracted_at': time.monotonic(),
         }
-    
+
     def search_helper(self, search):
-        with YoutubeDL(self.YTDL_OPTIONS) as ydl:
+        with YoutubeDL(self.YTDL_SEARCH_OPTIONS) as ydl:
             try:
                 info = ydl.extract_info(f"ytsearch10:{search}", download=False)
-                info = info['entries']
-            except:
-                print("Error when trying to search.")
+                entries = (info or {}).get('entries') or []
+            except Exception as e:
+                print(f"Error when trying to search: {e}")
                 return None
-        
+
         results = []
-        for entry in info:
+        for entry in entries:
+            if not entry:
+                continue
+            title = entry.get('title')
+            if not title:
+                continue
             results.append({
-                'link': entry['webpage_url'],
-                'thumbnail': entry.get('thumbnail'),
-                'source': entry['url'],
-                'title': entry['title']
+                'link': self._watch_url(entry),
+                'thumbnail': self._thumbnail_url(entry),
+                'source': None,
+                'title': title,
+                'extracted_at': None,
             })
-        return results
+        return results or None
     
     def play_next(self, ctx):
         id = int(ctx.guild.id)
@@ -236,7 +317,7 @@ class MusicCog(commands.Cog):
             self.queueIndex[id] += 1
             
             song = self.musicQueue[id][self.queueIndex[id]][0]
-            fresh = self.find_song(song['link'])
+            fresh = self._ensure_stream(song)
             if fresh:
                 song = fresh
                 self.musicQueue[id][self.queueIndex[id]][0] = fresh
@@ -258,32 +339,36 @@ class MusicCog(commands.Cog):
     # Other Async Functions
     async def play_music(self, ctx):
         id = int(ctx.guild.id)
-        if self.queueIndex[id] < len(self.musicQueue[id]):
-            self.isPlaying[id] = True
-            self.isPaused[id] = False
-
-            await self.join_vc(ctx, self.musicQueue[id][self.queueIndex[id]][1])
-            if self.vc.get(id) is None:
-                self.isPlaying[id] = False
+        async with self._play_lock(id):
+            if self.is_audio_playing(id):
                 return
+            if self.queueIndex[id] < len(self.musicQueue[id]):
+                self.isPlaying[id] = True
+                self.isPaused[id] = False
 
-            song = self.musicQueue[id][self.queueIndex[id]][0]
-            fresh = self.find_song(song['link'])
-            if fresh:
-                song = fresh
-                self.musicQueue[id][self.queueIndex[id]][0] = fresh
-            elif not song.get('source'):
-                await ctx.send("Could not get a playable audio stream.")
+                await self.join_vc(ctx, self.musicQueue[id][self.queueIndex[id]][1])
+                if self.vc.get(id) is None:
+                    self.isPlaying[id] = False
+                    return
+
+                song = self.musicQueue[id][self.queueIndex[id]][0]
+                async with ctx.typing():
+                    fresh = await asyncio.to_thread(self._ensure_stream, song)
+                if fresh:
+                    song = fresh
+                    self.musicQueue[id][self.queueIndex[id]][0] = fresh
+                elif not song.get('source'):
+                    await ctx.send("Could not get a playable audio stream.")
+                    self.isPlaying[id] = False
+                    return
+
+                message = self.now_playing_embed(ctx, song)
+                await ctx.send(embed=message)
+                self._start_source(ctx, song)
+            else:
+                await ctx.send("There are no songs in the queue.")
+                self.queueIndex[id] += 1
                 self.isPlaying[id] = False
-                return
-
-            message = self.now_playing_embed(ctx, song)
-            await ctx.send(embed=message)
-            self._start_source(ctx, song)
-        else:
-            await ctx.send("There are no songs in the queue.")
-            self.queueIndex[id] += 1
-            self.isPlaying[id] = False
 
     # Commands
     @commands.command(
@@ -312,7 +397,8 @@ class MusicCog(commands.Cog):
                 await self.play_music(ctx)
             return
         else:
-            song = self.find_song(search)
+            async with ctx.typing():
+                song = await asyncio.to_thread(self.find_song, search)
             if song is None:
                 await ctx.send("Could not download the song, incorrect format, try a different search.")
             else:
@@ -340,7 +426,8 @@ class MusicCog(commands.Cog):
         if not args:
             await ctx.send("Please specify a song to add.")
         else:
-            song = self.find_song(search)
+            async with ctx.typing():
+                song = await asyncio.to_thread(self.find_song, search)
             if song is None:
                 await ctx.send("Could not download the song, incorrect format, try a different search.")
             else:
@@ -393,8 +480,9 @@ class MusicCog(commands.Cog):
         
         await ctx.send("Fetching search results . . .")
 
-        songs = self.search_helper(search)
-        if songs == None:
+        async with ctx.typing():
+            songs = await asyncio.to_thread(self.search_helper, search)
+        if not songs:
             await ctx.send("No results matching your search.")
             return
     

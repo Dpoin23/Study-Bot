@@ -42,7 +42,8 @@ class SearchView(discord.ui.View):
             description=f"[{songRef['title']}]({songRef['link']}) added to the queue!",
             color=self.embedBlue
         )
-        embedResponse.set_thumbnail(url=songRef['thumbnail'])
+        if songRef.get('thumbnail'):
+            embedResponse.set_thumbnail(url=songRef['thumbnail'])
 
         self.musicQueue[guild_id].append(
             [songRef, self.ctx.author.voice.channel]
