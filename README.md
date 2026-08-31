@@ -4,6 +4,8 @@ A Discord music bot for study sessions: search YouTube, queue tracks, and contro
 
 Prefix: **`!`**
 
+**[Add Study Bot to your Discord server](https://discord.com/oauth2/authorize?client_id=1426077305922387980&permissions=8&integration_type=0&scope=bot)** — open that link, pick a server you have Manage Server on, and authorize. You do not need to host anything.
+
 ```
 !play lofi hip hop radio
 !search never gonna give you up
@@ -73,7 +75,7 @@ Most music commands require you to already be in a voice channel.
 | --- | --- | --- |
 | `!join` | `j` | Join your current voice channel |
 | `!leave` | `l` | Leave voice and clear that server’s queue |
-| `!help` | `h` | List commands inside Discord |
+| `!help` | `h`, `?` | List commands inside Discord |
 
 `!leave` also fires on its own if everyone else leaves the channel.
 
@@ -95,12 +97,14 @@ Most music commands require you to already be in a voice channel.
 
 ## Setup
 
+To use the hosted bot, skip this section and use the [invite link](https://discord.com/oauth2/authorize?client_id=1426077305922387980&permissions=8&integration_type=0&scope=bot) above. The steps below are only if you want to run your own instance.
+
 ### 1. Prerequisites
 
 | Tool | Why |
 | --- | --- |
 | **Python 3.10+** | Runs the bot |
-| **[FFmpeg](https://ffmpeg.org/download.html)** | Streams audio into Discord voice (must be on your `PATH`) |
+| **[FFmpeg](https://ffmpeg.org/download.html)** | Streams audio into Discord voice. Put a Linux binary at `bin/ffmpeg` if the bundled copy crashes (common on WSL). |
 | **[Node.js](https://nodejs.org/)** | yt-dlp uses it to extract YouTube audio |
 
 Quick checks:
@@ -175,4 +179,4 @@ Join a voice channel, then try `!help` or `!play lofi study beats`.
 
 ## Stack
 
-[Python](https://www.python.org/) · [discord.py](https://discordpy.readthedocs.io/) · [yt-dlp](https://github.com/yt-dlp/yt-dlp) · [FFmpeg](https://ffmpeg.org/) · [python-dotenv](https://pypi.org/project/python-dotenv/)
+[Python](https://www.python.org/) · [discord.py](https://discordpy.readthedocs.io/) · [PyNaCl](https://pypi.org/project/PyNaCl/) · [davey](https://pypi.org/project/davey/) · [yt-dlp](https://github.com/yt-dlp/yt-dlp) · [FFmpeg](https://ffmpeg.org/) · [python-dotenv](https://pypi.org/project/python-dotenv/)

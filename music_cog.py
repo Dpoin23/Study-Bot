@@ -8,8 +8,40 @@ from urllib import parse, request
 import re
 import json
 import os
+import shutil
 from yt_dlp import YoutubeDL
 from view import SearchView
+
+
+def _ffmpeg_executable():
+    explicit = os.getenv('FFMPEG_PATH')
+    if explicit:
+        return explicit
+    local = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bin', 'ffmpeg')
+    if os.path.isfile(local) and os.access(local, os.X_OK):
+        return local
+    on_path = shutil.which('ffmpeg')
+    if on_path:
+        return on_path
+    import imageio_ffmpeg
+    return imageio_ffmpeg.get_ffmpeg_exe()
+
+
+def _js_runtimes():
+    runtimes = {}
+    node = os.getenv('NODE_PATH') or shutil.which('node')
+    if node:
+        runtimes['node'] = {'path': node}
+    deno = (
+        os.getenv('DENO_PATH')
+        or shutil.which('deno')
+        or os.path.expanduser('~/.deno/bin/deno')
+    )
+    if deno and os.path.isfile(deno):
+        runtimes['deno'] = {'path': deno}
+    if not runtimes:
+        runtimes['node'] = {}
+    return runtimes
 
 # guild represents the server
 
@@ -34,17 +66,12 @@ class MusicCog(commands.Cog):
             'format': 'bestaudio/best',
             'quiet': True,
             'noplaylist': True,
-            'remote_components': {
-                'ejs': 'github'
-            }
+            'remote_components': ['ejs:github'],
+            'js_runtimes': _js_runtimes(),
         }
-        node_path = os.getenv('NODE_PATH')
-        if node_path:
-            self.YTDL_OPTIONS['js_runtimes'] = {
-                'node': {'path': node_path}
-            }
+        self.ffmpeg_executable = _ffmpeg_executable()
         self.FFMPEG_OPTIONS = {
-            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 
+            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -nostdin',
             'options': '-vn'
         }
 
@@ -135,6 +162,34 @@ class MusicCog(commands.Cog):
         
         else: 
             await self.vc[id].move_to(channel)
+
+    def _voice_client(self, guild_id):
+        return self.vc.get(int(guild_id))
+
+    def is_audio_playing(self, guild_id):
+        vc = self._voice_client(guild_id)
+        return vc is not None and vc.is_playing()
+
+    def is_audio_paused(self, guild_id):
+        vc = self._voice_client(guild_id)
+        return vc is not None and vc.is_paused()
+
+    def _start_source(self, ctx, song):
+        id = int(ctx.guild.id)
+
+        def after_play(error):
+            if error:
+                print(f"Playback error: {error}")
+            self.play_next(ctx)
+
+        self.vc[id].play(
+            discord.FFmpegOpusAudio(
+                song['source'],
+                executable=self.ffmpeg_executable,
+                **self.FFMPEG_OPTIONS,
+            ),
+            after=after_play,
+        )
     
     def find_song(self, query):
         with YoutubeDL(self.YTDL_OPTIONS) as ydl:
@@ -181,6 +236,13 @@ class MusicCog(commands.Cog):
             self.queueIndex[id] += 1
             
             song = self.musicQueue[id][self.queueIndex[id]][0]
+            fresh = self.find_song(song['link'])
+            if fresh:
+                song = fresh
+                self.musicQueue[id][self.queueIndex[id]][0] = fresh
+            elif not song.get('source'):
+                self.isPlaying[id] = False
+                return
             message = self.now_playing_embed(ctx, song)
             coroutine = ctx.send(embed=message)
             var = run_coroutine_threadsafe(coroutine, self.bot.loop)
@@ -188,9 +250,7 @@ class MusicCog(commands.Cog):
                 var.result()
             except Exception as e:
                 print(f"Error: {e}")
-
-            self.vc[id].play(discord.FFmpegPCMAudio(
-                song['source'], **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
+            self._start_source(ctx, song)
         else:
             self.queueIndex[id] += 1
             self.isPlaying[id] = False
@@ -203,13 +263,23 @@ class MusicCog(commands.Cog):
             self.isPaused[id] = False
 
             await self.join_vc(ctx, self.musicQueue[id][self.queueIndex[id]][1])
+            if self.vc.get(id) is None:
+                self.isPlaying[id] = False
+                return
 
             song = self.musicQueue[id][self.queueIndex[id]][0]
+            fresh = self.find_song(song['link'])
+            if fresh:
+                song = fresh
+                self.musicQueue[id][self.queueIndex[id]][0] = fresh
+            elif not song.get('source'):
+                await ctx.send("Could not get a playable audio stream.")
+                self.isPlaying[id] = False
+                return
+
             message = self.now_playing_embed(ctx, song)
             await ctx.send(embed=message)
-
-            self.vc[id].play(discord.FFmpegPCMAudio(
-                song['source'], **self.FFMPEG_OPTIONS), after=lambda e: self.play_next(ctx))
+            self._start_source(ctx, song)
         else:
             await ctx.send("There are no songs in the queue.")
             self.queueIndex[id] += 1
@@ -233,15 +303,14 @@ class MusicCog(commands.Cog):
             if len(self.musicQueue[id]) == 0:
                 await ctx.send("There are no songs in the queue.")
                 return
-            elif not self.isPlaying[id]:
-                if self.musicQueue[id] == None or self.vc[id] == None:
-                    await self.play_music(ctx)
-                else:
-                    self.isPaused[id] = False
-                    self.isPlaying[id] = True
-                    self.vc[id].resume()
-            else:
+            if self.is_audio_paused(id):
+                self.isPaused[id] = False
+                self.isPlaying[id] = True
+                self.vc[id].resume()
                 return
+            if not self.is_audio_playing(id):
+                await self.play_music(ctx)
+            return
         else:
             song = self.find_song(search)
             if song is None:
@@ -249,7 +318,7 @@ class MusicCog(commands.Cog):
             else:
                 self.musicQueue[id].append([song, userChannel])
 
-                if not self.isPlaying[id]:
+                if not self.is_audio_playing(id):
                     await self.play_music(ctx)
                 else:
                     message = self.added_song_embed(ctx, song)
@@ -306,7 +375,7 @@ class MusicCog(commands.Cog):
 
     @commands.command(
         name="search",
-        aliases=['?', 'se', 'find'],
+        aliases=['se', 'find'],
         help="Search YouTube and choose a result to add to the queue"
     )
     async def search(self, ctx, *args):
@@ -338,7 +407,7 @@ class MusicCog(commands.Cog):
             color=self.embedBlue
         )
 
-        view = SearchView(ctx, songs, songs, self.embedBlue, self.musicQueue)
+        view = SearchView(ctx, songs, self)
         message = await ctx.send(embed=searchResults, view=view)
         view.message = message
 

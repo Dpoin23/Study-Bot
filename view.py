@@ -1,13 +1,14 @@
 import discord
 
 class SearchView(discord.ui.View):
-    def __init__(self, ctx, songs, songReferences, embedBlue, musicQueue):
+    def __init__(self, ctx, songs, music_cog):
         super().__init__(timeout=60)
         self.ctx = ctx
         self.songs = songs
-        self.songReferences = songReferences
-        self.embedBlue = embedBlue
-        self.musicQueue = musicQueue
+        self.songReferences = songs
+        self.embedBlue = music_cog.embedBlue
+        self.music_cog = music_cog
+        self.musicQueue = music_cog.musicQueue
 
         options = [
             discord.SelectOption(
@@ -34,6 +35,7 @@ class SearchView(discord.ui.View):
     async def select_callback(self, interaction: discord.Interaction):
         chosenIndex = int(self.select.values[0])
         songRef = self.songReferences[chosenIndex]
+        guild_id = self.ctx.guild.id
 
         embedResponse = discord.Embed(
             title=f"Option #{chosenIndex + 1} selected.",
@@ -42,11 +44,13 @@ class SearchView(discord.ui.View):
         )
         embedResponse.set_thumbnail(url=songRef['thumbnail'])
 
-        self.musicQueue[self.ctx.guild.id].append(
+        self.musicQueue[guild_id].append(
             [songRef, self.ctx.author.voice.channel]
         )
 
         await interaction.response.edit_message(embed=embedResponse, view=None)
+        if not self.music_cog.is_audio_playing(guild_id):
+            await self.music_cog.play_music(self.ctx)
         self.stop()
 
     async def cancel_callback(self, interaction: discord.Interaction):

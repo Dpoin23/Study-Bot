@@ -5,9 +5,13 @@ class HelpCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.embedOrange = 0xFFA500
+        self._greeted = False
 
     @commands.Cog.listener()
     async def on_ready(self):
+        if self._greeted:
+            return
+        self._greeted = True
         send_to_channels = []
         for guild in self.bot.guilds:
             channel = guild.text_channels[0]

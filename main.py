@@ -26,6 +26,16 @@ bot = MyBot(command_prefix='!', intents=intents)
 
 bot.remove_command('help')
 
+@bot.listen('on_command_error')
+async def notify_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        return
+    original = getattr(error, 'original', error)
+    try:
+        await ctx.send(f'Command failed: {original}')
+    except Exception:
+        pass
+
 DEV = "Developer"
 MEM = "Member"
 ADM = "Admin"
