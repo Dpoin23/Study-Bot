@@ -13,6 +13,8 @@ from bot.cogs.admin import AdminCog
 from bot.cogs.help import HelpCog
 from bot.cogs.music import MusicCog
 
+logger = logging.getLogger(__name__)
+
 
 class StudyBot(commands.Bot):
     async def setup_hook(self):
