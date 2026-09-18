@@ -1,12 +1,13 @@
-import discord
-from discord.ext import commands
 import logging
-from dotenv import load_dotenv
 import os
 
-from music_cog import MusicCog
-from help_cog import HelpCog
+import discord
+from discord.ext import commands
+from dotenv import load_dotenv
+
 from admin_cog import AdminCog
+from help_cog import HelpCog
+from music_cog import MusicCog
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -16,15 +17,18 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
+
 class MyBot(commands.Bot):
     async def setup_hook(self):
         await self.add_cog(MusicCog(self))
         await self.add_cog(AdminCog(self))
         await self.add_cog(HelpCog(self))
 
+
 bot = MyBot(command_prefix='!', intents=intents)
 
 bot.remove_command('help')
+
 
 @bot.listen('on_command_error')
 async def notify_command_error(ctx, error):
@@ -36,8 +40,6 @@ async def notify_command_error(ctx, error):
     except Exception:
         pass
 
-DEV = "Developer"
-MEM = "Member"
-ADM = "Admin"
 
-bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+if __name__ == '__main__':
+    bot.run(token, log_handler=handler, log_level=logging.DEBUG)

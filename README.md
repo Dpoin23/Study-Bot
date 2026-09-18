@@ -177,6 +177,20 @@ Join a voice channel, then try `!help` or `!play lofi study beats`.
 
 ---
 
+## Development checks
+
+CI runs on every push and pull request to `main` (lint, syntax, tests, smoke import). Dependabot keeps pip packages and GitHub Actions up to date. CodeQL runs on push/PR and weekly.
+
+```bash
+pip install -r requirements-dev.txt
+ruff check .
+python -m compileall -q .
+pytest
+python scripts/smoke.py
+```
+
+---
+
 ## Stack
 
 [Python](https://www.python.org/) · [discord.py](https://discordpy.readthedocs.io/) · [PyNaCl](https://pypi.org/project/PyNaCl/) · [davey](https://pypi.org/project/davey/) · [yt-dlp](https://github.com/yt-dlp/yt-dlp) · [FFmpeg](https://ffmpeg.org/) · [python-dotenv](https://pypi.org/project/python-dotenv/)

@@ -1,5 +1,6 @@
 import discord
 
+
 class SearchView(discord.ui.View):
     def __init__(self, ctx, songs, music_cog):
         super().__init__(timeout=60)
@@ -65,5 +66,5 @@ class SearchView(discord.ui.View):
     async def on_timeout(self):
         try:
             await self.message.edit(view=None)
-        except:
+        except Exception:
             print("Error on_timeout in SearchView.")

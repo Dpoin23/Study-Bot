@@ -1,16 +1,13 @@
-import discord
-from discord.ui import Select, Button
-from discord import SelectOption
-from discord.ext import commands
 import asyncio
-from asyncio import run_coroutine_threadsafe
-from urllib import parse, request
-import re
-import json
 import os
 import shutil
 import time
+from asyncio import run_coroutine_threadsafe
+
+import discord
+from discord.ext import commands
 from yt_dlp import YoutubeDL
+
 from view import SearchView
 
 # Stream URLs from YouTube stay valid for hours; refresh before this to be safe.
@@ -113,7 +110,7 @@ class MusicCog(commands.Cog):
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         id = int(member.guild.id)
-        if member.id != self.bot.user.id and before.channel != None and after.channel != before.channel:
+        if member.id != self.bot.user.id and before.channel is not None and after.channel != before.channel:
             remainingChannelMembers = before.channel.members
             if len(remainingChannelMembers) == 1 and remainingChannelMembers[0].id == self.bot.user.id and self.vc[id].is_connected():
                 self.musicQueue[id] = []
@@ -136,7 +133,7 @@ class MusicCog(commands.Cog):
         )
         if thumbnail:
             embed.set_thumbnail(url=thumbnail)
-        embed.set_footer(text=f"Song added by: {str(author)}", icon_url=avatar)
+        embed.set_footer(text=f"Song added by: {author!s}", icon_url=avatar)
         return embed
     
     def added_song_embed(self, ctx, song):
@@ -153,7 +150,7 @@ class MusicCog(commands.Cog):
         )
         if thumbnail:
             embed.set_thumbnail(url=thumbnail)
-        embed.set_footer(text=f"Song added by: {str(author)}", icon_url=avatar)
+        embed.set_footer(text=f"Song added by: {author!s}", icon_url=avatar)
         return embed
     
     def removed_song_embed(self, ctx, song):
@@ -170,16 +167,16 @@ class MusicCog(commands.Cog):
         )
         if thumbnail:
             embed.set_thumbnail(url=thumbnail)
-        embed.set_footer(text=f"Song removed by: {str(author)}", icon_url=avatar)
+        embed.set_footer(text=f"Song removed by: {author!s}", icon_url=avatar)
         return embed
 
     # Helper Functions
     async def join_vc(self, ctx, channel):
         id = int(ctx.guild.id)
-        if self.vc[id] == None or not self.vc[id].is_connected():
+        if self.vc[id] is None or not self.vc[id].is_connected():
             self.vc[id] = await channel.connect()
 
-            if self.vc[id] == None:
+            if self.vc[id] is None:
                 await ctx.send("Could not connect to the voice channel.")
                 return
         
@@ -379,11 +376,10 @@ class MusicCog(commands.Cog):
     async def play(self, ctx, *args):
         search = " ".join(args)
         id = int(ctx.guild.id)
-        try:
-            userChannel = ctx.author.voice.channel
-        except:
+        if not ctx.author.voice or not ctx.author.voice.channel:
             await ctx.send("You must be connected to a voice channel to play music.")
             return
+        userChannel = ctx.author.voice.channel
         if not args:
             if len(self.musicQueue[id]) == 0:
                 await ctx.send("There are no songs in the queue.")
@@ -418,11 +414,10 @@ class MusicCog(commands.Cog):
     async def add(self, ctx, *args):
         search = " ".join(args)
         id = int(ctx.guild.id)
-        try:
-            userChannel = ctx.author.voice.channel
-        except:
+        if not ctx.author.voice or not ctx.author.voice.channel:
             await ctx.send("You must be connected to a voice channel to play music.")
             return
+        userChannel = ctx.author.voice.channel
         if not args:
             await ctx.send("Please specify a song to add.")
         else:
@@ -450,12 +445,12 @@ class MusicCog(commands.Cog):
             await ctx.send("There are no songs to remove from the queue.")
         self.musicQueue[id] = self.musicQueue[id][:-1]
         if self.musicQueue[id] == []:
-            if self.vc[id] != None and self.isPlaying[id]:
+            if self.vc[id] is not None and self.isPlaying[id]:
                 self.isPlaying[id] = self.isPaused[id] = False
                 await self.vc[id].disconnect()
                 self.vc[id] = None
             self.queueIndex[id] = 0
-        elif self.queueIndex[id] == len(self.musicQueue[id]) and self.vc[id] != None and self.vc[id]:
+        elif self.queueIndex[id] == len(self.musicQueue[id]) and self.vc[id] is not None and self.vc[id]:
             self.vc[id].pause()
             self.queueIndex[id] -= 1
             await self.play_music(ctx)
@@ -472,12 +467,10 @@ class MusicCog(commands.Cog):
         if not args:
             await ctx.send("You must specify search terms.")
             return
-        try:
-            userChannel = ctx.author.voice.channel
-        except:
+        if not ctx.author.voice or not ctx.author.voice.channel:
             await ctx.send("You must be connected to a voice channel.")
             return
-        
+
         await ctx.send("Fetching search results . . .")
 
         async with ctx.typing():
@@ -542,13 +535,13 @@ class MusicCog(commands.Cog):
     )
     async def previous(self, ctx):
         id = int(ctx.guild.id)
-        if self.vc[id] == None:
+        if self.vc[id] is None:
             await ctx.send("You need to be in a voice channel to use previous.")
         elif self.queueIndex[id] <= 0:
             await ctx.send("There is no previous song in the queue, replaying current song.")
             self.vc[id].pause()
             await self.play_music(ctx)
-        elif self.vc[id] != None and self.vc[id]:
+        elif self.vc[id] is not None and self.vc[id]:
             self.vc[id].pause()
             self.queueIndex[id] -= 1
             await self.play_music(ctx)
@@ -560,11 +553,11 @@ class MusicCog(commands.Cog):
     )
     async def skip(self, ctx):
         id = int(ctx.guild.id)
-        if self.vc[id] == None:
+        if self.vc[id] is None:
             await ctx.send("You need to be in a voice channel to use skip.")
         elif self.queueIndex[id] >= len(self.musicQueue[id]) - 1:
             await ctx.send("There is no next song in the queue.")
-        elif self.vc[id] != None and self.vc[id]:
+        elif self.vc[id] is not None and self.vc[id]:
             self.vc[id].pause()
             self.queueIndex[id] += 1
             await self.play_music(ctx)
@@ -576,16 +569,16 @@ class MusicCog(commands.Cog):
     )
     async def replay(self, ctx):
         id = int(ctx.guild.id)
-        if self.vc[id] == None:
+        if self.vc[id] is None:
             await ctx.send("You need to be in a voice channel to replay a song.")
         elif self.musicQueue[id] == []:
             await ctx.send("There are no songs to replay.")
-        elif self.vc[id] != None and self.vc[id] and self.queueIndex[id] == len(self.musicQueue[id]):
+        elif self.vc[id] is not None and self.vc[id] and self.queueIndex[id] == len(self.musicQueue[id]):
             self.queueIndex[id] -= 1
             await self.play_music(ctx)
-        elif self.vc[id] != None and self.vc[id] and self.isPaused[id]:
+        elif self.vc[id] is not None and self.vc[id] and self.isPaused[id]:
             await self.play_music(ctx)
-        elif self.vc[id] != None and self.vc[id]:
+        elif self.vc[id] is not None and self.vc[id]:
             self.vc[id].pause()
             await self.play_music(ctx) 
 
@@ -632,7 +625,7 @@ class MusicCog(commands.Cog):
     )
     async def clear(self, ctx):
         id = int(ctx.guild.id)
-        if self.vc[id] != None and self.isPlaying[id]:
+        if self.vc[id] is not None and self.isPlaying[id]:
             self.isPlaying[id] = self.isPaused[id] = False
             self.vc[id].stop()
         if self.musicQueue[id] != []:
@@ -663,7 +656,7 @@ class MusicCog(commands.Cog):
         self.musicQueue[id] = []
         self.queueIndex[id] = 0
         self.isPaused[id] = self.isPlaying[id] = False
-        if self.vc[id] != None:
+        if self.vc[id] is not None:
             await ctx.send(f"Study bot has left {ctx.author.voice.channel}")
             await self.vc[id].disconnect()
             self.vc[id] = None
