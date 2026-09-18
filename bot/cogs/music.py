@@ -2,7 +2,6 @@ import asyncio
 import os
 import shutil
 import time
-from asyncio import run_coroutine_threadsafe
 from pathlib import Path
 
 import discord
@@ -325,7 +324,7 @@ class MusicCog(commands.Cog):
                 return
             message = self.now_playing_embed(ctx, song)
             coroutine = ctx.send(embed=message)
-            var = run_coroutine_threadsafe(coroutine, self.bot.loop)
+            var = asyncio.run_coroutine_threadsafe(coroutine, self.bot.loop)
             try:
                 var.result()
             except Exception as e:

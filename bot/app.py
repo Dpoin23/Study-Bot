@@ -39,7 +39,7 @@ def create_bot() -> StudyBot:
         try:
             await ctx.send(f'Command failed: {original}')
         except Exception:
-            pass
+            logger.error(f'Error sending command error to {ctx.author.name}: {error}')
 
     return bot
 
