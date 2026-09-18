@@ -12,10 +12,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"test/**" = ["S101"]
+"tests/**" = ["S101"]
 "scripts/**" = ["T201"]
 
 [tool.pytest.ini_options]
-testpaths = ["test"]
+testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-q"

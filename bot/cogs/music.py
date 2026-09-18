@@ -3,24 +3,26 @@ import os
 import shutil
 import time
 from asyncio import run_coroutine_threadsafe
+from pathlib import Path
 
 import discord
 from discord.ext import commands
 from yt_dlp import YoutubeDL
 
-from view import SearchView
+from bot.views.search import SearchView
 
 # Stream URLs from YouTube stay valid for hours; refresh before this to be safe.
 _SOURCE_TTL_SECONDS = 20 * 60
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _ffmpeg_executable():
     explicit = os.getenv('FFMPEG_PATH')
     if explicit:
         return explicit
-    local = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bin', 'ffmpeg')
-    if os.path.isfile(local) and os.access(local, os.X_OK):
-        return local
+    local = _REPO_ROOT / 'bin' / 'ffmpeg'
+    if local.is_file() and os.access(local, os.X_OK):
+        return str(local)
     on_path = shutil.which('ffmpeg')
     if on_path:
         return on_path
