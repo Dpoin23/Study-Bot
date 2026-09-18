@@ -1,4 +1,4 @@
-"""Entry point: `python main.py` or `python -m bot`."""
+"""Allow `python -m bot`."""
 
 from bot.app import run
 

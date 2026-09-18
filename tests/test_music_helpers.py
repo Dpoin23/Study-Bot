@@ -5,8 +5,8 @@ from __future__ import annotations
 import time
 from unittest.mock import MagicMock
 
-import music_cog
-from music_cog import _SOURCE_TTL_SECONDS, MusicCog
+from bot.cogs import music as music_mod
+from bot.cogs.music import _SOURCE_TTL_SECONDS, MusicCog
 
 
 def _cog() -> MusicCog:
@@ -46,7 +46,12 @@ def test_thumbnail_url_from_list_and_id():
     cog = _cog()
     assert (
         cog._thumbnail_url(
-            {"thumbnails": [{"url": "https://img.example/a.jpg"}, {"url": "https://img.example/b.jpg"}]}
+            {
+                "thumbnails": [
+                    {"url": "https://img.example/a.jpg"},
+                    {"url": "https://img.example/b.jpg"},
+                ]
+            }
         )
         == "https://img.example/b.jpg"
     )
@@ -73,12 +78,12 @@ def test_source_is_fresh():
 
 
 def test_ffmpeg_executable_resolves():
-    path = music_cog._ffmpeg_executable()
+    path = music_mod._ffmpeg_executable()
     assert isinstance(path, str)
     assert len(path) > 0
 
 
 def test_js_runtimes_returns_dict():
-    runtimes = music_cog._js_runtimes()
+    runtimes = music_mod._js_runtimes()
     assert isinstance(runtimes, dict)
     assert runtimes  # at least a node placeholder

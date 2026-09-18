@@ -40,7 +40,7 @@ flowchart LR
 3. **FFmpeg** pipes that audio into Discord voice.
 4. Queue position, pause state, and the voice client are stored **by guild ID**, so each server has its own player.
 
-Search uses a Discord UI view (`view.py`): a select menu of results plus a Cancel button. Choosing a row adds that track to the guild’s queue.
+Search uses a Discord UI view (`bot/views/search.py`): a select menu of results plus a Cancel button. Choosing a row adds that track to the guild’s queue.
 
 ---
 
@@ -83,15 +83,24 @@ Most music commands require you to already be in a voice channel.
 
 ## Project layout
 
-| File | Role |
-| --- | --- |
-| `main.py` | Entry point: loads the token, intents, and cogs |
-| `music_cog.py` | Queue, playback, YouTube lookup, voice join/leave |
-| `help_cog.py` | `!help` embed and the startup greeting |
-| `view.py` | Dropdown + Cancel button for `!search` |
-| `admin_cog.py` | Stub cog reserved for future admin commands |
-| `requirements.txt` | Python dependencies |
-| `.env.example` | Template for local secrets |
+```
+Study-Bot/
+├── main.py                 # thin entry (`python main.py`)
+├── bot/
+│   ├── app.py              # bot factory, intents, error handler
+│   ├── cogs/
+│   │   ├── music.py        # queue, playback, YouTube, voice
+│   │   ├── help.py         # !help + startup greeting
+│   │   └── admin.py        # stub for future admin commands
+│   └── views/
+│       └── search.py       # !search dropdown + Cancel
+├── scripts/smoke.py
+├── tests/
+├── requirements.txt
+└── .env.example
+```
+
+You can also start with `python -m bot`.
 
 ---
 
