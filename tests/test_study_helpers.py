@@ -2,9 +2,15 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
-from bot.cogs.study import format_duration, parse_study_minutes
+from bot.cogs.study import (
+    find_text_channel_by_names,
+    format_duration,
+    parse_study_minutes,
+)
 
 
 def test_parse_study_minutes_default():
@@ -35,3 +41,15 @@ def test_format_duration():
     assert format_duration(3600) == "1h 0m 0s"
     assert format_duration(3661) == "1h 1m 1s"
     assert format_duration(-3) == "0s"
+
+
+def test_find_text_channel_by_names():
+    channels = [
+        SimpleNamespace(name="announcements"),
+        SimpleNamespace(name="Study"),
+        SimpleNamespace(name="general"),
+    ]
+    match = find_text_channel_by_names(channels, ("study", "study-chat"))
+    assert match is not None
+    assert match.name == "Study"
+    assert find_text_channel_by_names(channels, ("nope",)) is None
