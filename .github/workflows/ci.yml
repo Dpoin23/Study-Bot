@@ -45,3 +45,6 @@ jobs:
 
       - name: Smoke import
         run: python scripts/smoke.py
+
+      - name: Runnable check
+        run: python scripts/check_runnable.py

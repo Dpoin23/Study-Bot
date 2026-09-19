@@ -15,9 +15,13 @@ if str(ROOT) not in sys.path:
 
 
 def main() -> int:
+    from bot.app import create_bot
     from bot.cogs import admin, music, study
     from bot.cogs import help as help_cog
     from bot.views import search
+
+    app_bot = create_bot()
+    assert app_bot.get_command("help") is None
 
     bot = MagicMock()
     music_cog = music.MusicCog(bot)
