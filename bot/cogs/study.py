@@ -12,7 +12,6 @@ from discord.ext import commands
 _DEFAULT_MINUTES = 25
 _MIN_MINUTES = 1
 _MAX_MINUTES = 180
-_TIMER_TICK_SECONDS = 15
 _STUDY_CHANNEL_NAMES = ("study", "study-chat", "studychat")
 _FALLBACK_CHANNEL_NAMES = ("general", "chat", "lounge")
 
@@ -62,7 +61,10 @@ class StudySession:
     duration_seconds: int
     started_at: float
     end_at: float
+    started_at_unix: int
+    ends_at_unix: int
     timer_message_id: int | None = None
+    timer_message: discord.Message | None = field(default=None, repr=False)
     task: asyncio.Task | None = field(default=None, repr=False)
 
     @property
@@ -138,7 +140,6 @@ class StudyCog(commands.Cog):
         voice_name = voice.name if isinstance(voice, discord.VoiceChannel) else "voice"
         remaining = format_duration(session.remaining_seconds)
         total = format_duration(session.duration_seconds)
-        elapsed = format_duration(time.monotonic() - session.started_at)
 
         if status == "complete":
             return discord.Embed(
@@ -158,14 +159,17 @@ class StudyCog(commands.Cog):
                 color=self.embedOrange,
             )
 
+        # Discord clients tick <t:unix:R> locally — no bot edits needed for a smooth countdown.
         return discord.Embed(
             title="Study timer",
             description=(
                 f"{member_mention} is studying.\n\n"
-                f"**Remaining:** {remaining}\n"
-                f"**Elapsed:** {elapsed} / {total}\n"
+                f"**Remaining:** <t:{session.ends_at_unix}:R>\n"
+                f"**Ends:** <t:{session.ends_at_unix}:t>\n"
+                f"**Duration:** {total}\n"
+                f"**Started:** <t:{session.started_at_unix}:R>\n"
                 f"**Lock-in:** {voice_name}\n\n"
-                "Leaving the voice channel mid-session triggers a warning.\n"
+                "Leaving the voice channel mid-session posts a warning in this channel.\n"
                 "Stop early with `!studyend`."
             ),
             color=self.embedBlue,
@@ -179,31 +183,32 @@ class StudyCog(commands.Cog):
     ) -> None:
         if session.timer_message_id is None:
             return
+
+        embed = self._timer_embed(session, status=status)
+        message = session.timer_message
+        if message is not None:
+            try:
+                await message.edit(embed=embed)
+                return
+            except discord.HTTPException:
+                session.timer_message = None
+
         channel = self.bot.get_channel(session.text_channel_id)
         if not isinstance(channel, discord.TextChannel):
             return
         try:
             message = await channel.fetch_message(session.timer_message_id)
-            await message.edit(embed=self._timer_embed(session, status=status))
+            session.timer_message = message
+            await message.edit(embed=embed)
         except discord.HTTPException:
             pass
 
-    async def _announce(self, session: StudySession, embed: discord.Embed) -> None:
+    async def _post_leave_warning(self, session: StudySession, embed: discord.Embed) -> None:
         channel = self.bot.get_channel(session.text_channel_id)
-        if isinstance(channel, discord.TextChannel):
-            try:
-                await channel.send(embed=embed)
-            except discord.HTTPException:
-                pass
-
-        user = self.bot.get_user(session.user_id)
-        if user is None:
-            try:
-                user = await self.bot.fetch_user(session.user_id)
-            except discord.HTTPException:
-                return
+        if not isinstance(channel, discord.TextChannel):
+            return
         try:
-            await user.send(embed=embed)
+            await channel.send(embed=embed)
         except discord.HTTPException:
             pass
 
@@ -217,10 +222,13 @@ class StudyCog(commands.Cog):
         await self._edit_timer_message(session, status=status)
 
     async def _session_timer(self, session: StudySession) -> None:
+        """Sleep until the session ends; Discord timestamps handle live countdown display."""
         try:
-            while session.remaining_seconds > 0:
-                await self._edit_timer_message(session)
-                await asyncio.sleep(min(_TIMER_TICK_SECONDS, session.remaining_seconds))
+            while True:
+                remaining = session.remaining_seconds
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(remaining)
         except asyncio.CancelledError:
             return
         await self._finish_session(session, completed=True)
@@ -259,7 +267,7 @@ class StudyCog(commands.Cog):
             ),
             color=self.embedRed,
         )
-        await self._announce(session, embed)
+        await self._post_leave_warning(session, embed)
 
     @commands.command(
         name="study",
@@ -291,15 +299,18 @@ class StudyCog(commands.Cog):
 
         study_channel = await self._resolve_study_channel(ctx.guild, ctx.channel)
         duration_seconds = duration_minutes * 60
-        now = time.monotonic()
+        now_mono = time.monotonic()
+        now_unix = int(time.time())
         session = StudySession(
             user_id=ctx.author.id,
             guild_id=ctx.guild.id,
             text_channel_id=study_channel.id,
             voice_channel_id=ctx.author.voice.channel.id,
             duration_seconds=duration_seconds,
-            started_at=now,
-            end_at=now + duration_seconds,
+            started_at=now_mono,
+            end_at=now_mono + duration_seconds,
+            started_at_unix=now_unix,
+            ends_at_unix=now_unix + duration_seconds,
         )
 
         try:
@@ -309,15 +320,11 @@ class StudyCog(commands.Cog):
             return
 
         session.timer_message_id = timer_message.id
+        session.timer_message = timer_message
         session.task = asyncio.create_task(self._session_timer(session))
         self.sessions[ctx.author.id] = session
 
-        if study_channel.id == ctx.channel.id:
-            await ctx.send(
-                f"Study session started ({duration_minutes} min). "
-                "The timer above updates live — use `!studyend` to stop early."
-            )
-        else:
+        if study_channel.id != ctx.channel.id:
             await ctx.send(
                 f"Study session started ({duration_minutes} min). "
                 f"Live timer is in {study_channel.mention} — use `!studyend` to stop early."

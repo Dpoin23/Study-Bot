@@ -19,7 +19,7 @@ class HelpCog(commands.Cog):
             send_to_channels.append(channel)
         hello_embed = discord.Embed(
             title="Hello", 
-            description="I am the music bot for the server. Use '!help' if you need assistance.", 
+            description="I am the study/music bot for the server. Use '!help' if you need assistance.", 
             color=self.embedOrange
         )
         for channel in send_to_channels:
