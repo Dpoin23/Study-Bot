@@ -1,21 +1,31 @@
 # Study Bot
 
-A Discord music bot for study sessions: search YouTube, queue tracks, and control playback from a voice channel.
+A Discord bot for study sessions: timed focus lock-ins plus YouTube music in voice.
 
 Prefix: **`!`**
 
 **[Add Study Bot to your Discord server](https://discord.com/oauth2/authorize?client_id=1426077305922387980&permissions=8&integration_type=0&scope=bot)** — open that link, pick a server you have Manage Server on, and authorize. You do not need to host anything.
 
 ```
+!study 25
 !play lofi hip hop radio
 !search never gonna give you up
 !queue
-!skip
+!studyend
 ```
 
 ---
 
 ## What it does
+
+### Study timers
+
+- Starts a **Pomodoro-style focus session** (default 25 minutes; 1–180 allowed)
+- Posts a live **`M:SS` countdown** in `#study` (creates the channel when it can)
+- Locks you into the voice channel you started in — leaving mid-session posts a warning in `#study`
+- Ends on its own when time runs out, or early with `!studyend`
+
+### Music
 
 - Plays audio from a YouTube search or URL (nothing is downloaded to disk)
 - Keeps a **separate queue per Discord server**, so two guilds never share playback
@@ -26,6 +36,8 @@ Prefix: **`!`**
 ---
 
 ## How it works
+
+### Music
 
 ```mermaid
 flowchart LR
@@ -42,11 +54,28 @@ flowchart LR
 
 Search uses a Discord UI view (`bot/views/search.py`): a select menu of results plus a Cancel button. Choosing a row adds that track to the guild’s queue.
 
+### Study sessions
+
+1. You join a voice channel and run `!study` (optionally with minutes).
+2. `StudyCog` posts a timer embed in `#study` (or creates `#study` if the bot has Manage Channels; otherwise it falls back to general-like channels).
+3. The embed’s **Remaining** field ticks down once per second as `M:SS` (or `H:MM:SS` for longer sessions). **Started** shows the clock time the session began.
+4. If you leave that voice channel before the timer ends, the bot posts a leave warning in the study text channel (no DM).
+5. When time hits zero — or you run `!studyend` — the embed flips to a complete/ended state.
+
 ---
 
 ## Commands
 
-Most music commands require you to already be in a voice channel.
+Most music and study commands require you to already be in a voice channel.
+
+### Study
+
+| Command | Aliases | What it does |
+| --- | --- | --- |
+| `!study [minutes]` | `focus`, `pomodoro` | Start a focus timer in `#study` (default **25** min; range **1–180**). Must be in voice. |
+| `!studyend` | `endstudy`, `endfocus`, `studystop` | Stop your active study session early |
+
+One active session per user. Leaving the locked voice channel mid-session posts a warning in the study channel.
 
 ### Playback
 
@@ -90,12 +119,13 @@ Study-Bot/
 │   ├── app.py              # bot factory, intents, error handler
 │   ├── cogs/
 │   │   ├── music.py        # queue, playback, YouTube, voice
+│   │   ├── study.py        # focus timers, #study channel, leave warnings
 │   │   ├── help.py         # !help + startup greeting
 │   │   └── admin.py        # stub for future admin commands
 │   └── views/
 │       └── search.py       # !search dropdown + Cancel
 ├── scripts/smoke.py
-├── tests/
+├── tests/                  # music + study helpers, app startup
 ├── requirements.txt
 └── .env.example
 ```
@@ -135,6 +165,7 @@ node --version
    - Read Messages / View Channels
    - Send Messages
    - Embed Links
+   - Manage Channels (optional; lets the bot create `#study` for timers)
    - Connect
    - Speak
    - Read Message History
@@ -173,12 +204,15 @@ Start the bot:
 python main.py
 ```
 
-Join a voice channel, then try `!help` or `!play lofi study beats`.
+Join a voice channel, then try `!help`, `!study`, or `!play lofi study beats`.
 
 ---
 
 ## Notes and limits
 
+- Study timers need you in a voice channel first. Duration is **1–180** minutes (default **25**). One session per user at a time.
+- Leave-mid-session warnings go to the study text channel only — the bot does not DM you.
+- If `#study` (or `study-chat` / `studychat`) is missing and Manage Channels is unavailable, the timer falls back to channels like `#general`, then the system channel, then any sendable text channel.
 - YouTube changes extraction often. If search or play suddenly fails, update yt-dlp: `pip install -U yt-dlp`.
 - Playlists are disabled (`noplaylist`). One URL or search term maps to one track.
 - `!play` without arguments resumes a paused song; it does not start a new search.
