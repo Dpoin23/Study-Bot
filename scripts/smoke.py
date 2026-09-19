@@ -15,12 +15,15 @@ if str(ROOT) not in sys.path:
 
 
 def main() -> int:
-    from bot.cogs import admin, music
+    from bot.cogs import admin, music, study
     from bot.cogs import help as help_cog
     from bot.views import search
 
     bot = MagicMock()
     music_cog = music.MusicCog(bot)
+    study.StudyCog(bot)
+    assert study.parse_study_minutes(None) == 25
+    assert study.format_duration(65) == "1m 5s"
 
     entry = {"id": "dQw4w9WgXcQ", "title": "smoke"}
     watch = music_cog._watch_url(entry)
@@ -56,7 +59,7 @@ def main() -> int:
 
     print(
         f"smoke ok: watch={watch!r} ffmpeg={ffmpeg!r} "
-        f"modules={[admin.__name__, help_cog.__name__, music.__name__, search.__name__]}"
+        f"modules={[admin.__name__, help_cog.__name__, music.__name__, study.__name__, search.__name__]}"
     )
     return 0
 

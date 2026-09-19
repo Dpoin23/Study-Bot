@@ -33,10 +33,14 @@ class HelpCog(commands.Cog):
     async def help(self, ctx):
         help_cog = self.bot.get_cog("HelpCog")
         music_cog = self.bot.get_cog("MusicCog")
-        sections = [
-            ("Help", help_cog.get_commands()),
-            ("Music", music_cog.get_commands())
-        ]
+        study_cog = self.bot.get_cog("StudyCog")
+        sections = []
+        if help_cog:
+            sections.append(("Help", help_cog.get_commands()))
+        if study_cog:
+            sections.append(("Study", study_cog.get_commands()))
+        if music_cog:
+            sections.append(("Music", music_cog.get_commands()))
 
         lines = ["*Use a command with the `!` prefix. Aliases are shown in parentheses.*", ""]
         for title, cog_commands in sections:

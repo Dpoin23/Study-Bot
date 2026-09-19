@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from bot.cogs.admin import AdminCog
 from bot.cogs.help import HelpCog
 from bot.cogs.music import MusicCog
+from bot.cogs.study import StudyCog
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 class StudyBot(commands.Bot):
     async def setup_hook(self):
         await self.add_cog(MusicCog(self))
+        await self.add_cog(StudyCog(self))
         await self.add_cog(AdminCog(self))
         await self.add_cog(HelpCog(self))
 
