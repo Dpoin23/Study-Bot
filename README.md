@@ -41,10 +41,10 @@ Prefix: **`!`**
 
 ```mermaid
 flowchart LR
-  A[User in voice] -->|!play / !search| B[Study Bot]
-  B -->|yt-dlp search or URL| C[YouTube]
-  C -->|audio stream URL| B
-  B -->|FFmpeg| D[Discord voice channel]
+  A["User in voice"] -->|"play or search"| B["Study Bot"]
+  B -->|"yt-dlp search or URL"| C["YouTube"]
+  C -->|"audio stream URL"| B
+  B -->|"FFmpeg"| D["Discord voice channel"]
 ```
 
 1. A command lands in `MusicCog`.
