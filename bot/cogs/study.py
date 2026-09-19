@@ -16,6 +16,16 @@ _STUDY_CHANNEL_NAMES = ("study", "study-chat", "studychat")
 _FALLBACK_CHANNEL_NAMES = ("general", "chat", "lounge")
 
 
+def format_countdown(seconds: float) -> str:
+    """Format remaining time as a classic timer: `M:SS` or `H:MM:SS`."""
+    total = max(0, int(seconds))
+    hours, rem = divmod(total, 3600)
+    minutes, secs = divmod(rem, 60)
+    if hours:
+        return f"{hours}:{minutes:02d}:{secs:02d}"
+    return f"{minutes}:{secs:02d}"
+
+
 def parse_study_minutes(raw: str | None) -> int:
     """Parse a minutes argument; blank uses the default Pomodoro length."""
     if raw is None or str(raw).strip() == "":
@@ -62,7 +72,6 @@ class StudySession:
     started_at: float
     end_at: float
     started_at_unix: int
-    ends_at_unix: int
     timer_message_id: int | None = None
     timer_message: discord.Message | None = field(default=None, repr=False)
     task: asyncio.Task | None = field(default=None, repr=False)
@@ -138,8 +147,8 @@ class StudyCog(commands.Cog):
         member_mention = f"<@{session.user_id}>"
         voice = self.bot.get_channel(session.voice_channel_id)
         voice_name = voice.name if isinstance(voice, discord.VoiceChannel) else "voice"
-        remaining = format_duration(session.remaining_seconds)
-        total = format_duration(session.duration_seconds)
+        remaining = format_countdown(session.remaining_seconds)
+        total = format_countdown(session.duration_seconds)
 
         if status == "complete":
             return discord.Embed(
@@ -159,15 +168,13 @@ class StudyCog(commands.Cog):
                 color=self.embedOrange,
             )
 
-        # Discord clients tick <t:unix:R> locally — no bot edits needed for a smooth countdown.
         return discord.Embed(
             title="Study timer",
             description=(
                 f"{member_mention} is studying.\n\n"
-                f"**Remaining:** <t:{session.ends_at_unix}:R>\n"
-                f"**Ends:** <t:{session.ends_at_unix}:t>\n"
-                f"**Duration:** {total}\n"
-                f"**Started:** <t:{session.started_at_unix}:R>\n"
+                f"**Remaining:** `{remaining}`\n"
+                f"**Duration:** `{total}`\n"
+                f"**Started:** <t:{session.started_at_unix}:t>\n"
                 f"**Lock-in:** {voice_name}\n\n"
                 "Leaving the voice channel mid-session posts a warning in this channel.\n"
                 "Stop early with `!studyend`."
@@ -222,13 +229,20 @@ class StudyCog(commands.Cog):
         await self._edit_timer_message(session, status=status)
 
     async def _session_timer(self, session: StudySession) -> None:
-        """Sleep until the session ends; Discord timestamps handle live countdown display."""
+        """Edit the embed once per second so Remaining counts down as M:SS."""
         try:
             while True:
                 remaining = session.remaining_seconds
                 if remaining <= 0:
                     break
-                await asyncio.sleep(remaining)
+                await self._edit_timer_message(session)
+                remaining = session.remaining_seconds
+                if remaining <= 0:
+                    break
+                # Sleep until the next whole second so the display stays aligned.
+                until_next_second = remaining - int(remaining)
+                delay = until_next_second if until_next_second > 0.05 else 1.0
+                await asyncio.sleep(min(delay, remaining))
         except asyncio.CancelledError:
             return
         await self._finish_session(session, completed=True)
@@ -255,8 +269,8 @@ class StudyCog(commands.Cog):
         if not left_study_channel:
             return
 
-        elapsed = format_duration(time.monotonic() - session.started_at)
-        remaining = format_duration(session.remaining_seconds)
+        elapsed = format_countdown(time.monotonic() - session.started_at)
+        remaining = format_countdown(session.remaining_seconds)
         channel_name = before.channel.name if before.channel else "the study channel"
         embed = discord.Embed(
             title="Left mid-session",
@@ -310,7 +324,6 @@ class StudyCog(commands.Cog):
             started_at=now_mono,
             end_at=now_mono + duration_seconds,
             started_at_unix=now_unix,
-            ends_at_unix=now_unix + duration_seconds,
         )
 
         try:

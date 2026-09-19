@@ -8,6 +8,7 @@ import pytest
 
 from bot.cogs.study import (
     find_text_channel_by_names,
+    format_countdown,
     format_duration,
     parse_study_minutes,
 )
@@ -41,6 +42,16 @@ def test_format_duration():
     assert format_duration(3600) == "1h 0m 0s"
     assert format_duration(3661) == "1h 1m 1s"
     assert format_duration(-3) == "0s"
+
+
+def test_format_countdown():
+    assert format_countdown(0) == "0:00"
+    assert format_countdown(5) == "0:05"
+    assert format_countdown(65) == "1:05"
+    assert format_countdown(1500) == "25:00"
+    assert format_countdown(3600) == "1:00:00"
+    assert format_countdown(3661) == "1:01:01"
+    assert format_countdown(-3) == "0:00"
 
 
 def test_find_text_channel_by_names():
