@@ -9,7 +9,8 @@ Prefix: **`!`**
 ```
 !study 25
 !play lofi hip hop radio
-!search never gonna give you up
+!playlist lofi study beats
+!search playlist lofi
 !queue
 !studyend
 ```
@@ -30,6 +31,7 @@ Prefix: **`!`**
 - Plays audio from a YouTube search or URL (nothing is downloaded to disk)
 - Keeps a **separate queue per Discord server**, so two guilds never share playback
 - Lets you pick from the top 10 search results with a dropdown instead of typing a number
+- Can enqueue a whole **YouTube playlist** (search or URL), capped at 100 tracks per add
 - Supports pause, resume, skip, previous, replay, and a live queue embed
 - Leaves automatically when it is the last member in the voice channel
 
@@ -41,8 +43,8 @@ Prefix: **`!`**
 
 ```mermaid
 flowchart LR
-  A["User in voice"] -->|"play or search"| B["Study Bot"]
-  B -->|"yt-dlp search or URL"| C["YouTube"]
+  A["User in voice"] -->|"play / search / playlist"| B["Study Bot"]
+  B -->|"yt-dlp search, URL, or playlist"| C["YouTube"]
   C -->|"audio stream URL"| B
   B -->|"FFmpeg"| D["Discord voice channel"]
 ```
@@ -52,7 +54,7 @@ flowchart LR
 3. **FFmpeg** pipes that audio into Discord voice.
 4. Queue position, pause state, and the voice client are stored **by guild ID**, so each server has its own player.
 
-Search uses a Discord UI view (`bot/views/search.py`): a select menu of results plus a Cancel button. Choosing a row adds that track to the guild’s queue.
+Search uses a Discord UI view (`bot/views/search.py`): a select menu of results plus a Cancel button. Choosing a row adds that track to the guild’s queue. Playlist search uses the same pattern (`bot/views/playlist.py`) and enqueues every track from the chosen playlist (up to 100), tagging them so `!remove playlist` can drop that batch later.
 
 ### Study sessions
 
@@ -81,7 +83,8 @@ One active session per user. Leaving the locked voice channel mid-session posts 
 
 | Command | Aliases | What it does |
 | --- | --- | --- |
-| `!play <query or URL>` | `pl` | Play the first match, or resume if you omit a query while paused |
+| `!play <query or URL>` | `pl` | Play the first match, or resume if you omit a query while paused. Playlist page URLs enqueue the whole playlist |
+| `!playlist <query or URL>` | `plist`, `pllist` | Search playlists (or paste a playlist URL), enqueue tracks (up to **100**), and start playing |
 | `!pause` | `stop` | Pause the current track |
 | `!resume` | `re`, `start` | Resume a paused track |
 | `!skip` | `sk`, `next` | Jump to the next song in the queue |
@@ -94,7 +97,10 @@ One active session per user. Leaving the locked voice channel mid-session posts 
 | --- | --- | --- |
 | `!add <query or URL>` | `a`, `+` | Add a track without starting playback |
 | `!search <query>` | `se`, `find` | Show the top 10 YouTube results; pick one from the dropdown |
+| `!search playlist <query>` | *(same)* | Show playlist results; pick one to enqueue all its tracks |
 | `!remove` | `rm` | Remove the last song that was added |
+| `!remove playlist [name]` | `rm` + `playlist` | Remove a queued playlist batch (picker if several; optional name filter) |
+| `!removeplaylist [name]` | `rmpl`, `rmplaylist` | Same as `!remove playlist` |
 | `!queue` | `q`, `list` | Show the current track, the next track, and a few upcoming songs |
 | `!clear` | `cl`, `removeall` | Stop playback and empty the queue |
 
@@ -118,12 +124,13 @@ Study-Bot/
 ├── bot/
 │   ├── app.py              # bot factory, intents, error handler
 │   ├── cogs/
-│   │   ├── music.py        # queue, playback, YouTube, voice
+│   │   ├── music.py        # queue, playback, YouTube, voice, playlists
 │   │   ├── study.py        # focus timers, #study channel, leave warnings
 │   │   ├── help.py         # !help + startup greeting
 │   │   └── admin.py        # stub for future admin commands
 │   └── views/
-│       └── search.py       # !search dropdown + Cancel
+│       ├── search.py       # !search dropdown + Cancel
+│       └── playlist.py     # playlist search / remove dropdowns
 ├── scripts/smoke.py
 ├── tests/                  # music + study helpers, app startup
 ├── requirements.txt
@@ -214,7 +221,8 @@ Join a voice channel, then try `!help`, `!study`, or `!play lofi study beats`.
 - Leave-mid-session warnings go to the study text channel only — the bot does not DM you.
 - If `#study` (or `study-chat` / `studychat`) is missing and Manage Channels is unavailable, the timer falls back to channels like `#general`, then the system channel, then any sendable text channel.
 - YouTube changes extraction often. If search or play suddenly fails, update yt-dlp: `pip install -U yt-dlp`.
-- Playlists are disabled (`noplaylist`). One URL or search term maps to one track.
+- Single-track `!play` / `!add` / `!search` still use `noplaylist`, so a `watch?v=…&list=…` link plays that video only. Use `!playlist` (or a `/playlist?list=…` URL with `!play`) to enqueue the full list.
+- Playlist adds are capped at **100** tracks per enqueue. Streams resolve lazily when each track starts, not all at once.
 - `!play` without arguments resumes a paused song; it does not start a new search.
 - The bot token belongs in `.env` only. That file is gitignored.
 
