@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import time
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from bot.cogs import music as music_mod
-from bot.cogs.music import _SOURCE_TTL_SECONDS, MusicCog
+from bot.cogs.music import (
+    _PLAYLIST_ENQUEUE_CAP,
+    _SOURCE_TTL_SECONDS,
+    MusicCog,
+    is_playlist_url,
+    playlist_url_from_query,
+)
 
 
 def _cog() -> MusicCog:
@@ -87,3 +94,114 @@ def test_js_runtimes_returns_dict():
     runtimes = music_mod._js_runtimes()
     assert isinstance(runtimes, dict)
     assert runtimes  # at least a node placeholder
+
+
+def test_is_playlist_url():
+    assert is_playlist_url(
+        "https://www.youtube.com/playlist?list=PLabc123"
+    )
+    assert not is_playlist_url(
+        "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLabc123"
+    )
+    assert not is_playlist_url("lofi hip hop")
+    assert not is_playlist_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+
+
+def test_playlist_url_from_query():
+    assert (
+        playlist_url_from_query(
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLabc123"
+        )
+        == "https://www.youtube.com/playlist?list=PLabc123"
+    )
+    assert (
+        playlist_url_from_query(
+            "https://www.youtube.com/playlist?list=PLabc123"
+        )
+        == "https://www.youtube.com/playlist?list=PLabc123"
+    )
+    assert playlist_url_from_query("lofi beats") is None
+
+
+def test_playlist_link_from_entry():
+    cog = _cog()
+    assert (
+        cog._playlist_link_from_entry(
+            {
+                "id": "PLabc",
+                "url": "https://www.youtube.com/playlist?list=PLabc",
+            }
+        )
+        == "https://www.youtube.com/playlist?list=PLabc"
+    )
+    assert (
+        cog._playlist_link_from_entry({"id": "PLonly"})
+        == "https://www.youtube.com/playlist?list=PLonly"
+    )
+
+
+def test_apply_playlist_removal_adjusts_index():
+    cog = _cog()
+    guild_id = 42
+    channel = SimpleNamespace(id=1)
+    batch_a = "batch-a"
+    batch_b = "batch-b"
+    cog.musicQueue[guild_id] = [
+        [{"title": "A", "playlist_batch": batch_a, "playlist_title": "Alpha"}, channel],
+        [{"title": "B", "playlist_batch": batch_b, "playlist_title": "Beta"}, channel],
+        [{"title": "C", "playlist_batch": batch_a, "playlist_title": "Alpha"}, channel],
+        [{"title": "D"}, channel],
+    ]
+    cog.queueIndex[guild_id] = 1  # playing B (batch_b)
+
+    summary = cog._apply_playlist_removal(guild_id, batch_a)
+    assert summary["removed"] == 2
+    assert summary["title"] == "Alpha"
+    assert summary["current_was_removed"] is False
+    assert [item[0]["title"] for item in cog.musicQueue[guild_id]] == ["B", "D"]
+    assert cog.queueIndex[guild_id] == 0
+
+
+def test_apply_playlist_removal_when_current_in_batch():
+    cog = _cog()
+    guild_id = 7
+    channel = SimpleNamespace(id=1)
+    batch = "batch-x"
+    cog.musicQueue[guild_id] = [
+        [{"title": "Keep"}, channel],
+        [{"title": "Go1", "playlist_batch": batch, "playlist_title": "X"}, channel],
+        [{"title": "Go2", "playlist_batch": batch, "playlist_title": "X"}, channel],
+        [{"title": "Keep2"}, channel],
+    ]
+    cog.queueIndex[guild_id] = 1
+
+    summary = cog._apply_playlist_removal(guild_id, batch)
+    assert summary["removed"] == 2
+    assert summary["current_was_removed"] is True
+    assert [item[0]["title"] for item in cog.musicQueue[guild_id]] == [
+        "Keep",
+        "Keep2",
+    ]
+    assert cog.queueIndex[guild_id] == 1
+
+
+def test_queued_playlist_batches_groups_by_batch():
+    cog = _cog()
+    guild_id = 9
+    channel = SimpleNamespace(id=1)
+    cog.musicQueue[guild_id] = [
+        [{"title": "1", "playlist_batch": "b1", "playlist_title": "One"}, channel],
+        [{"title": "2", "playlist_batch": "b1", "playlist_title": "One"}, channel],
+        [{"title": "3", "playlist_batch": "b2", "playlist_title": "Two"}, channel],
+        [{"title": "solo"}, channel],
+    ]
+    batches = cog.queued_playlist_batches(guild_id)
+    assert len(batches) == 2
+    assert batches[0]["playlist_title"] == "One"
+    assert batches[0]["count"] == 2
+    assert batches[1]["playlist_title"] == "Two"
+    assert batches[1]["count"] == 1
+
+
+def test_playlist_enqueue_cap_constant():
+    assert _PLAYLIST_ENQUEUE_CAP == 100

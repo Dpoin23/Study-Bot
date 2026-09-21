@@ -18,7 +18,7 @@ def main() -> int:
     from bot.app import create_bot
     from bot.cogs import admin, music, study
     from bot.cogs import help as help_cog
-    from bot.views import search
+    from bot.views import playlist, search
 
     app_bot = create_bot()
     assert app_bot.get_command("help") is None
@@ -56,6 +56,26 @@ def main() -> int:
     ]
     music_cog.musicQueue[1] = []
     search.SearchView(ctx, songs, music_cog)
+    playlist.PlaylistSearchView(
+        ctx,
+        [{"title": "Smoke Playlist", "link": "https://www.youtube.com/playlist?list=PLsmoke"}],
+        music_cog,
+    )
+    playlist.PlaylistRemoveView(
+        ctx,
+        [{"batch": "b1", "playlist_title": "Smoke Playlist", "count": 2}],
+        music_cog,
+    )
+
+    assert music.is_playlist_url(
+        "https://www.youtube.com/playlist?list=PLsmoke"
+    )
+    assert (
+        music.playlist_url_from_query(
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=PLsmoke"
+        )
+        == "https://www.youtube.com/playlist?list=PLsmoke"
+    )
 
     ffmpeg = music._ffmpeg_executable()
     if not ffmpeg:
@@ -63,7 +83,7 @@ def main() -> int:
 
     print(
         f"smoke ok: watch={watch!r} ffmpeg={ffmpeg!r} "
-        f"modules={[admin.__name__, help_cog.__name__, music.__name__, study.__name__, search.__name__]}"
+        f"modules={[admin.__name__, help_cog.__name__, music.__name__, study.__name__, search.__name__, playlist.__name__]}"
     )
     return 0
 
