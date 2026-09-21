@@ -205,3 +205,74 @@ def test_queued_playlist_batches_groups_by_batch():
 
 def test_playlist_enqueue_cap_constant():
     assert _PLAYLIST_ENQUEUE_CAP == 100
+
+
+def test_format_queue_description_empty():
+    cog = _cog()
+    guild_id = 1
+    cog.musicQueue[guild_id] = []
+    cog.queueIndex[guild_id] = 0
+    assert cog.format_queue_description(guild_id) is None
+
+
+def test_format_queue_description_labels_playing_and_next():
+    cog = _cog()
+    guild_id = 2
+    channel = SimpleNamespace(id=1)
+    cog.musicQueue[guild_id] = [
+        [{"title": "Now", "link": "https://yt.example/1"}, channel],
+        [{"title": "Soon", "link": "https://yt.example/2"}, channel],
+        [{"title": "Later", "link": "https://yt.example/3"}, channel],
+    ]
+    cog.queueIndex[guild_id] = 0
+    cog.isPlaying[guild_id] = True
+    text = cog.format_queue_description(guild_id)
+    assert text.startswith("Playing - [Now](https://yt.example/1)\n")
+    assert "Next - [Soon](https://yt.example/2)\n" in text
+    assert "3 - [Later](https://yt.example/3)\n" in text
+    assert "… and" not in text
+
+
+def test_format_queue_description_caps_song_count():
+    cog = _cog()
+    guild_id = 3
+    channel = SimpleNamespace(id=1)
+    cog.musicQueue[guild_id] = [
+        [{"title": f"Song {i}", "link": f"https://yt.example/{i}"}, channel]
+        for i in range(50)
+    ]
+    cog.queueIndex[guild_id] = 0
+    cog.isPlaying[guild_id] = False
+    text = cog.format_queue_description(guild_id)
+    assert text is not None
+    assert len(text) <= music_mod._QUEUE_EMBED_MAX_CHARS
+    assert "… and" in text
+    shown_lines = [line for line in text.splitlines() if " - " in line]
+    assert len(shown_lines) == music_mod._QUEUE_EMBED_MAX_SONGS
+    omitted = 50 - music_mod._QUEUE_EMBED_MAX_SONGS
+    assert f"… and {omitted} more" in text
+
+
+def test_format_queue_description_caps_character_length():
+    cog = _cog()
+    guild_id = 4
+    channel = SimpleNamespace(id=1)
+    long_title = "A" * 200
+    cog.musicQueue[guild_id] = [
+        [
+            {
+                "title": f"{long_title} {i}",
+                "link": f"https://www.youtube.com/watch?v={'x' * 11}",
+            },
+            channel,
+        ]
+        for i in range(40)
+    ]
+    cog.queueIndex[guild_id] = 0
+    cog.isPlaying[guild_id] = True
+    text = cog.format_queue_description(guild_id)
+    assert text is not None
+    assert len(text) <= music_mod._QUEUE_EMBED_MAX_CHARS
+    assert "… and" in text
+    shown_lines = [line for line in text.splitlines() if " - " in line]
+    assert len(shown_lines) < music_mod._QUEUE_EMBED_MAX_SONGS

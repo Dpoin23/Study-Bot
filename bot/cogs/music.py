@@ -17,6 +17,9 @@ from bot.views.search import SearchView
 _SOURCE_TTL_SECONDS = 20 * 60
 _PLAYLIST_ENQUEUE_CAP = 100
 _PLAYLIST_SEARCH_LIMIT = 10
+# Discord embed description max is 4096; total embed max is 6000.
+_QUEUE_EMBED_MAX_SONGS = 20
+_QUEUE_EMBED_MAX_CHARS = 3800
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -1011,6 +1014,56 @@ class MusicCog(commands.Cog):
             self.vc[id].pause()
             await self.play_music(ctx) 
 
+    def format_queue_description(self, guild_id):
+        """Build a Discord-safe queue embed description (capped length)."""
+        gid = int(guild_id)
+        queue = self.musicQueue[gid]
+        start = self.queueIndex[gid]
+        remaining = queue[start:]
+        if not remaining:
+            return None
+
+        total = len(remaining)
+        lines = []
+        shown = 0
+        for offset, (song, _channel) in enumerate(remaining):
+            if shown >= _QUEUE_EMBED_MAX_SONGS:
+                break
+            if offset == 0 and self.isPlaying[gid]:
+                label = "Playing"
+            elif offset == 1 and self.isPlaying[gid]:
+                label = "Next"
+            else:
+                label = offset + 1
+            title = song.get('title') or 'Unknown'
+            link = song.get('link') or ''
+            if link:
+                line = f"{label} - [{title}]({link})\n"
+            else:
+                line = f"{label} - {title}\n"
+
+            omitted_after = total - shown - 1
+            footer_len = (
+                len(f"\n… and {omitted_after} more")
+                if omitted_after > 0
+                else 0
+            )
+            if len(''.join(lines)) + len(line) + footer_len > _QUEUE_EMBED_MAX_CHARS:
+                if shown == 0:
+                    # Still show something truncated rather than an empty embed.
+                    budget = _QUEUE_EMBED_MAX_CHARS - footer_len - 1
+                    lines.append(line[:budget] + "\n")
+                    shown = 1
+                break
+            lines.append(line)
+            shown += 1
+
+        text = ''.join(lines)
+        omitted = total - shown
+        if omitted > 0:
+            text += f"\n… and {omitted} more"
+        return text
+
     @commands.command(
         name='queue',
         aliases=['q', 'list'],
@@ -1018,31 +1071,14 @@ class MusicCog(commands.Cog):
     )
     async def queue(self, ctx):
         id = int(ctx.guild.id)
-        returnValue = ""
-        if self.musicQueue[id] == []:
+        description = self.format_queue_description(id)
+        if description is None:
             await ctx.send("There are no songs in the queue.")
             return
-        
-        for i in range(self.queueIndex[id], len(self.musicQueue[id])):
-            nextSongs = len(self.musicQueue[id]) - self.queueIndex[id]
-            if i > 5 + nextSongs:
-                break
-            returnIndex = i - self.queueIndex[id]
-            if returnIndex == 0 and self.isPlaying[id]:
-                returnIndex = "Playing"
-            elif returnIndex == 1 and self.isPlaying[id]:
-                returnIndex = "Next"
-            else:
-                returnIndex += 1
-            returnValue += f"{returnIndex} - [{self.musicQueue[id][i][0]['title']}]({self.musicQueue[id][i][0]['link']})\n"
 
-            if returnValue == "":
-                await ctx.send("There are no songs in the queue.")
-                return
-        
         queue = discord.Embed(
             title="Current Queue",
-            description=returnValue,
+            description=description,
             color=self.embedGreen
         )
         await ctx.send(embed=queue)
