@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from dataclasses import dataclass, field
 
 import discord
 from discord.ext import commands
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_MINUTES = 25
 _MIN_MINUTES = 1
@@ -125,7 +128,7 @@ class StudyCog(commands.Cog):
                 )
                 return created
             except discord.HTTPException:
-                pass
+                logger.warning("Could not create #study; using a fallback channel", exc_info=True)
 
         candidate = find_text_channel_by_names(
             list(guild.text_channels),
@@ -208,7 +211,11 @@ class StudyCog(commands.Cog):
             session.timer_message = message
             await message.edit(embed=embed)
         except discord.HTTPException:
-            pass
+            logger.warning(
+                "Could not refresh study timer %s",
+                session.timer_message_id,
+                exc_info=True,
+            )
 
     async def _post_leave_warning(self, session: StudySession, embed: discord.Embed) -> None:
         channel = self.bot.get_channel(session.text_channel_id)
@@ -217,7 +224,11 @@ class StudyCog(commands.Cog):
         try:
             await channel.send(embed=embed)
         except discord.HTTPException:
-            pass
+            logger.warning(
+                "Could not post study leave warning in channel %s",
+                session.text_channel_id,
+                exc_info=True,
+            )
 
     async def _finish_session(self, session: StudySession, *, completed: bool) -> None:
         current = self.sessions.get(session.user_id)
@@ -360,7 +371,7 @@ class StudyCog(commands.Cog):
             try:
                 await task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Study countdown cancelled for user %s", session.user_id)
         await self._finish_session(session, completed=False)
         if ctx.channel.id != session.text_channel_id:
             await ctx.send("Study session ended.")

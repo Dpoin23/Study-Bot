@@ -50,8 +50,13 @@ async def _live_check(token: str) -> None:
                 connect_task.cancel()
                 try:
                     await connect_task
-                except (asyncio.CancelledError, Exception):
-                    pass
+                except asyncio.CancelledError:
+                    print("live check: gateway connect cancelled after close")
+                except Exception as exc:
+                    print(
+                        f"live check: gateway connect ended after close: {exc}",
+                        file=sys.stderr,
+                    )
     finally:
         if not bot.is_closed():
             await bot.close()
