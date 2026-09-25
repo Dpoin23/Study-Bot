@@ -131,6 +131,7 @@ Study-Bot/
 │   └── views/
 │       ├── search.py       # !search dropdown + Cancel
 │       └── playlist.py     # playlist search / remove dropdowns
+├── docs/DEPLOYMENT.md      # local setup and Oracle Cloud Always Free deploy
 ├── scripts/smoke.py
 ├── tests/                  # music + study helpers, app startup
 ├── requirements.txt
@@ -143,7 +144,7 @@ You can also start with `python -m bot`.
 
 ## Setup
 
-To use the hosted bot, skip this section and use the [invite link](https://discord.com/oauth2/authorize?client_id=1426077305922387980&permissions=8&integration_type=0&scope=bot) above. The steps below are only if you want to run your own instance.
+To use the hosted bot, skip this section and use the [invite link](https://discord.com/oauth2/authorize?client_id=1426077305922387980&permissions=8&integration_type=0&scope=bot) above. To run your own instance on a free always-on VM, follow [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). The steps below are the local install.
 
 ### 1. Prerequisites
 
